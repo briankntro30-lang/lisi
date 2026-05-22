@@ -3,19 +3,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-# ===================================================
-# CONFIG
-# ===================================================
+
+# Parametres globales
 st.set_page_config(page_title="Simogramme", layout="wide")
 
 st.image(
     "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
-    width=250
-)
+    width=250)
 
-# ===================================================
 # LOGIN
-# ===================================================
 def login():
     st.title("Connexion - Simogramme")
 
@@ -40,25 +36,23 @@ if not st.session_state["logged_in"]:
     login()
     st.stop()
 
-# ===================================================
+
 # HEADER
-# ===================================================
 st.title("Simogramme")
 
 st.markdown("---")
 
-# ===================================================
+
 # TABLEAU
-# (NO CAMBIO NOMBRES NI INTERFAZ)
-# ===================================================
 df = pd.DataFrame({
-    "Numéro": [1, 2],
-    "Mode opératoire": ["Opération A", "Opération B"],
-    "Temps (s)": [5, 8],
+    "Numéro": [],
+    "Mode opératoire": [],
+    "Temps (ms)": [],
     "TT (Machine)": [False, False],
     "TM (Humain)": [False, False],
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False]
+    "Tf (Temps frequentiel)": [False, False]
 })
 
 edited_df = st.data_editor(
@@ -67,9 +61,8 @@ edited_df = st.data_editor(
     use_container_width=True
 )
 
-# ===================================================
+
 # BOUTON
-# ===================================================
 if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 6))
