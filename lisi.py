@@ -45,9 +45,9 @@ st.markdown("---")
 
 # TABLEAU
 df = pd.DataFrame({
-    "Numéro": [],
-    "Mode opératoire": [],
-    "Temps (ms)": [],
+    "Numéro": [1],
+    "Mode opératoire": [A],
+    "Temps (ms)": [1.2],
     "TT (Machine)": [False, False],
     "TM (Humain)": [False, False],
     "TTM (Machine+Humain)": [False, False],
