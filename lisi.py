@@ -55,7 +55,6 @@ df = pd.DataFrame({
     "Tf (Temps frequentiel)": [False, False],
 })
 
-})
 
 edited_df = st.data_editor(
     df,
