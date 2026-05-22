@@ -42,17 +42,19 @@ st.title("Simogramme")
 
 st.markdown("---")
 
-
 # TABLEAU
+
 df = pd.DataFrame({
-    "Numéro": [1],
-    "Mode opératoire": ["A"],
-    "Temps (ms)": [1.2],
-    "TT (Machine)": [False, False],
+    "Numéro": [1, 2],
+    "Mode opératoire": ["A", "B"],
+    "Temps (ms)": [1.2, 2.4],
+    "TT (Machine)": [False, True],
     "TM (Humain)": [False, False],
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False],
     "Tf (Temps frequentiel)": [False, False],
+})
+
 })
 
 edited_df = st.data_editor(
