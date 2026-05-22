@@ -51,7 +51,7 @@ df = pd.DataFrame({
     "TT (Machine)": [False, False],
     "TM (Humain)": [False, False],
     "TTM (Machine+Humain)": [False, False],
-    "TZ (Pause)": [False, False]
+    "TZ (Pause)": [False, False],
     "Tf (Temps frequentiel)": [False, False]
 })
 
