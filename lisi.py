@@ -52,7 +52,7 @@ df = pd.DataFrame({
     "TM (Humain)": [False, False],
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False],
-    "Tf (Temps frequentiel)": [False, False]
+    "Tf (Temps frequentiel)": [False, False],
 })
 
 edited_df = st.data_editor(
