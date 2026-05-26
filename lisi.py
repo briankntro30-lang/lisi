@@ -91,7 +91,7 @@ edited_df = st.data_editor(
 
 if st.button("Générer le simogramme"):
 
-    fig, ax = plt.subplots(figsize=(16, 6))
+    fig, ax = plt.subplots(figsize=(16, 5))
 
     # ===================================================
     # POSITIONS
@@ -148,7 +148,7 @@ if st.button("Générer le simogramme"):
 
                 facecolor="#2ecc71",
                 edgecolor="black",
-                alpha=0.85,
+                alpha=0.9,
 
                 hatch=hatch_style
             )
@@ -168,7 +168,7 @@ if st.button("Générer le simogramme"):
 
                 facecolor="#3498db",
                 edgecolor="black",
-                alpha=0.85,
+                alpha=0.9,
 
                 hatch=hatch_style
             )
@@ -184,11 +184,11 @@ if st.button("Générer le simogramme"):
             rect = Rectangle(
                 (debut, y_operateur),
                 temps,
-                y_machine - y_operateur,
+                y_machine - y_operateur + hauteur,
 
                 facecolor="#f39c12",
                 edgecolor="black",
-                alpha=0.6,
+                alpha=0.7,
 
                 hatch=hatch_style
             )
@@ -214,6 +214,20 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
 
         # ===================================================
+        # NOM OPÉRATION
+        # ===================================================
+
+        ax.text(
+            debut + temps / 2,
+            y_operateur - 0.35,
+            operation,
+
+            ha="center",
+            fontsize=10,
+            fontweight="bold"
+        )
+
+        # ===================================================
         # TEMPS CUMULÉ
         # ===================================================
 
@@ -226,7 +240,7 @@ if st.button("Générer le simogramme"):
     ax.hlines(
         y_machine,
         0,
-        max_x + 1,
+        max_x,
 
         color="black",
         linewidth=2
@@ -235,52 +249,71 @@ if st.button("Générer le simogramme"):
     ax.hlines(
         y_operateur,
         0,
-        max_x + 1,
+        max_x,
 
         color="black",
         linewidth=2
     )
 
+    # ===================================================
+    # TEXTES À GAUCHE
+    # ===================================================
+
     ax.text(
-        -0.8,
-        y_machine + 0.2,
+        -1.2,
+        y_machine + hauteur / 2,
         "Machine",
-        fontsize=12,
-        fontweight="bold"
+
+        fontsize=13,
+        fontweight="bold",
+
+        va="center",
+        ha="right"
     )
 
     ax.text(
-        -0.8,
-        y_operateur + 0.2,
+        -1.2,
+        y_operateur + hauteur / 2,
         "Opérateur",
-        fontsize=12,
-        fontweight="bold"
+
+        fontsize=13,
+        fontweight="bold",
+
+        va="center",
+        ha="right"
     )
 
     # ===================================================
-    # ÉCHELLE TEMPS
+    # AXE X
     # ===================================================
 
-    ax.set_xlim(0, max_x + 1)
+    ax.set_xlim(0, max_x)
 
-    ax.set_xticks(
-        range(0, int(max_x) + 2, 1)
-    )
+    # QUITAR números
+    ax.set_xticks([])
 
-  
-    ax.set_xlabel(
-        "Temps (secondes)",
-        fontsize=12
-    )
+    # QUITAR título eje
+    ax.set_xlabel("")
 
     # ===================================================
     # STYLE FINAL
     # ===================================================
 
-    ax.set_ylim(-1, 4)
+    ax.set_ylim(-1, 3.5)
 
     ax.set_yticks([])
 
+    # Quitar bordes
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+
+    # Fondo limpio
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+
+    plt.tight_layout()
 
     # ===================================================
     # AFFICHAGE
