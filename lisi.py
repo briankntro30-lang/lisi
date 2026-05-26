@@ -207,7 +207,7 @@ if st.button("Générer le simogramme"):
 
     ax.hlines(y_machine_1, 0, max_x, color="black", linewidth=2)
     ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_machine_2, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_machine_2, 1, max_x, color="black", linewidth=2)
 
     # ===================================================
     # LABELS LEFT
@@ -238,7 +238,7 @@ if st.button("Générer le simogramme"):
     # ===================================================
 
     ax.set_xlim(0, max_x)
-    ax.set_xticks([])  # ❌ no 1 2 3 4
+    ax.set_xticks([])  
     ax.set_xlabel("")
 
     # ===================================================
