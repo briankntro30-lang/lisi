@@ -70,13 +70,13 @@ df = pd.DataFrame({
     "Mode opératoire": ["A", "B"],
     "Temps (s)": [1.2, 2.4],
 
-    "TT (Machine)": [False, True],
-    "TM (Humain)": [False, False],
+    "TT (Machine)": [True, False],
+    "TM (Humain)": [False, True],
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False],
 
     # Temps fréquentiel
-    "Tf (Temps frequentiel)": [False, False],
+    "Tf (Temps frequentiel)": [False, True],
 })
 
 edited_df = st.data_editor(
@@ -120,6 +120,8 @@ if st.button("Générer le simogramme"):
             tm = bool(row["TM (Humain)"])
             ttm = bool(row["TTM (Machine+Humain)"])
             tz = bool(row["TZ (Pause)"])
+
+            # Modificateur fréquentiel
             tf = bool(row["Tf (Temps frequentiel)"])
 
         except:
@@ -127,6 +129,12 @@ if st.button("Générer le simogramme"):
 
         fin = debut + temps
         max_x = fin
+
+        # ===================================================
+        # STYLE TF
+        # ===================================================
+
+        hatch_style = "////" if tf else None
 
         # ===================================================
         # TT → MACHINE
@@ -141,7 +149,9 @@ if st.button("Générer le simogramme"):
 
                 facecolor="#2ecc71",
                 edgecolor="black",
-                alpha=0.85
+                alpha=0.85,
+
+                hatch=hatch_style
             )
 
             ax.add_patch(rect)
@@ -159,7 +169,9 @@ if st.button("Générer le simogramme"):
 
                 facecolor="#3498db",
                 edgecolor="black",
-                alpha=0.85
+                alpha=0.85,
+
+                hatch=hatch_style
             )
 
             ax.add_patch(rect)
@@ -177,7 +189,9 @@ if st.button("Générer le simogramme"):
 
                 facecolor="#f39c12",
                 edgecolor="black",
-                alpha=0.6
+                alpha=0.6,
+
+                hatch=hatch_style
             )
 
             ax.add_patch(rect)
@@ -196,27 +210,6 @@ if st.button("Générer le simogramme"):
                 facecolor="gray",
                 edgecolor="black",
                 alpha=0.8
-            )
-
-            ax.add_patch(rect)
-
-        # ===================================================
-        # TF → TEMPS FRÉQUENTIEL
-        # STYLE AUTOCAD (45°)
-        # ===================================================
-
-        elif tf:
-
-            rect = Rectangle(
-                (debut, y_operateur),
-                temps,
-                hauteur,
-
-                facecolor="#f8f8f8",
-                edgecolor="black",
-
-                hatch="////",   # lignes 45°
-                linewidth=1.5
             )
 
             ax.add_patch(rect)
