@@ -177,7 +177,6 @@ if st.button("Générer le simogramme"):
 
         # ===================================================
         # TTM → MACHINE + HUMAIN
-        # SOLO ENTRE LAS DOS LÍNEAS
         # ===================================================
 
         elif ttm:
@@ -268,13 +267,7 @@ if st.button("Générer le simogramme"):
         range(0, int(max_x) + 2, 1)
     )
 
-    ax.grid(
-        True,
-        axis="x",
-        linestyle="--",
-        alpha=0.4
-    )
-
+  
     ax.set_xlabel(
         "Temps (secondes)",
         fontsize=12
