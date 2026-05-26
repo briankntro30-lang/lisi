@@ -215,23 +215,6 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
 
         # ===================================================
-        # TEXTE OPÉRATION
-        # ===================================================
-
-        ax.text(
-            debut + temps / 2,
-            y_machine + 1,
-
-            operation,
-
-            ha="center",
-            va="center",
-
-            fontsize=10,
-            fontweight="bold"
-        )
-
-        # ===================================================
         # TEMPS CUMULÉ
         # ===================================================
 
