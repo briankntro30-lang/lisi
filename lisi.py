@@ -204,8 +204,9 @@ if st.button("Générer le simogramme"):
     # LINES BASE
     # ===================================================
 
-    ax.hlines(y_machine, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_machine 1, 0, max_x, color="black", linewidth=2)
     ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_machine 2, 0, max_x, color="black", linewidth=2)
 
     # ===================================================
     # LABELS LEFT
