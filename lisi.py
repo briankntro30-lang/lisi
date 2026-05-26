@@ -13,8 +13,8 @@ st.set_page_config(
 )
 
 st.image(
-    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
-    width=200  # 🔥 más compacto
+    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png",
+    width=180
 )
 
 # ===================================================
@@ -55,7 +55,7 @@ st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
-# DATA (tabla más compacta)
+# DATA (M1/M2 ahora SELECTBOX automático)
 # ===================================================
 
 df = pd.DataFrame({
@@ -73,22 +73,25 @@ edited_df = st.data_editor(
     df,
     num_rows="dynamic",
     use_container_width=True,
-    height=180  # 🔥 compacta la tabla
+    height=160  # 🔥 más compacto
 )
 
 # ===================================================
-# GRAFICO
+# BOTÓN
 # ===================================================
 
 if st.button("Générer le simogramme"):
 
-    fig, ax = plt.subplots(figsize=(16, 5))
+    fig, ax = plt.subplots(figsize=(16, 4))  # 🔥 más compacto vertical
 
-    y_m1 = 2
+    # ===================================================
+    # ESPACIADO MÁS PEQUEÑO
+    # ===================================================
+    y_m1 = 1.2
     y_op = 0
-    y_m2 = -2
+    y_m2 = -1.2
 
-    h = 0.6
+    h = 0.3  # 🔥 ALTURA PEDIDA
     debut = 0
     max_x = 0
 
@@ -112,7 +115,7 @@ if st.button("Générer le simogramme"):
         hatch = "////" if tf else None
 
         # ===================================================
-        # MACHINE SOLO
+        # MACHINE
         # ===================================================
         if tt:
 
@@ -132,7 +135,7 @@ if st.button("Générer le simogramme"):
             ))
 
         # ===================================================
-        # OPERADOR SOLO
+        # OPERADOR
         # ===================================================
         elif tm:
             ax.add_patch(Rectangle(
@@ -146,8 +149,7 @@ if st.button("Générer le simogramme"):
             ))
 
         # ===================================================
-        # MACHINE + OPERADOR (TTM)
-        # 👉 AHORA DEPENDE DE M1/M2
+        # TTM (entre líneas)
         # ===================================================
         elif ttm:
 
@@ -156,7 +158,7 @@ if st.button("Générer le simogramme"):
             ax.add_patch(Rectangle(
                 (debut, y_op),
                 temps,
-                y_top - y_op,   # 🔥 ENTRE MACHINE Y OPERADOR
+                y_top - y_op,
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
@@ -164,7 +166,7 @@ if st.button("Générer le simogramme"):
             ))
 
         # ===================================================
-        # PAUSE
+        # PAUSA
         # ===================================================
         elif tz:
             ax.add_patch(Rectangle(
@@ -177,31 +179,31 @@ if st.button("Générer le simogramme"):
             ))
 
         # ===================================================
-        # TEXTO (anti overlap)
+        # TEXTO
         # ===================================================
         if temps >= 0.5:
-            y_text = y_op - (0.35 if i % 2 == 0 else 0.75)
+            y_text = y_op - (0.2 if i % 2 == 0 else 0.45)
 
             ax.text(
                 debut + temps / 2,
                 y_text,
                 op,
                 ha="center",
-                fontsize=9
+                fontsize=8
             )
 
         debut += temps
 
     # ===================================================
-    # LINES BASE
+    # LÍNEAS BASE
     # ===================================================
     ax.hlines(y_m1, 0, max_x, color="black", linewidth=2)
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.hlines(y_m2, 0, max_x, color="black", linewidth=2)
 
-    ax.text(-1, y_m1, "Machine 1", ha="right", va="center", fontweight="bold")
-    ax.text(-1, y_m2, "Machine 2", ha="right", va="center", fontweight="bold")
-    ax.text(-1, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
+    ax.text(-0.5, y_m1, "Machine 1", ha="right", va="center", fontweight="bold")
+    ax.text(-0.5, y_m2, "Machine 2", ha="right", va="center", fontweight="bold")
+    ax.text(-0.5, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
 
     # ===================================================
     # CLEAN
