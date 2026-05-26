@@ -81,7 +81,7 @@ if st.button("Générer le simogramme"):
 
     for i, (_, row) in enumerate(edited_df.iterrows()):
 
-        op = str(row["Op"])
+        op = str(row["Etape"])
         temps = float(row["Temps"])
         sys = str(row["Sys"])
 
