@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from openpyxl.drawing.image import Image
-import openpyxl
 
 st.set_page_config(page_title="Simogramme", layout="wide")
 
@@ -51,7 +50,7 @@ if st.button("➕ Ajouter machine"):
     new_machine = f"M{len(st.session_state['machines']) + 1}"
     st.session_state["machines"].append(new_machine)
 
-st.title("Simogramme")
+st.title("Simogramme (Parallèle)")
 st.markdown("---")
 
 # ===================================================
@@ -90,9 +89,9 @@ if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 6))
 
-    # positions dynamiques machines
     machines = st.session_state["machines"]
 
+    # positions Y dynamiques
     y_positions = {}
     step = 1.2
     y_op = 0
@@ -104,7 +103,12 @@ if st.button("Générer le simogramme"):
         else:
             y_positions[m] = -step * (i // 2 + 1)
 
-    debut = 0
+    # ===================================================
+    # TEMPS INDÉPENDANTS (IMPORTANT)
+    # ===================================================
+    time_cursor = {m: 0 for m in machines}
+    time_cursor["OP"] = 0
+
     max_x = 0
 
     # ===================================================
@@ -122,17 +126,21 @@ if st.button("Générer le simogramme"):
         tz = bool(row["TZ"])
         tf = bool(row["TF"])
 
-        max_x = debut + temps
-
         hatch = "////" if tf else None
 
-        # MACHINE
+        # ===================================================
+        # MACHINE WORK
+        # ===================================================
         if tt:
+
+            start = time_cursor[sys]
+            end = start + temps
+            time_cursor[sys] = end
 
             y = y_positions[sys]
 
             ax.add_patch(Rectangle(
-                (debut, y),
+                (start, y),
                 temps,
                 h,
                 facecolor="#2ecc71",
@@ -141,11 +149,19 @@ if st.button("Générer le simogramme"):
                 hatch=hatch
             ))
 
-        # OPERATEUR
+            max_x = max(max_x, end)
+
+        # ===================================================
+        # OPÉRATEUR WORK
+        # ===================================================
         elif tm:
 
+            start = time_cursor["OP"]
+            end = start + temps
+            time_cursor["OP"] = end
+
             ax.add_patch(Rectangle(
-                (debut, y_op),
+                (start, y_op),
                 temps,
                 h,
                 facecolor="#3498db",
@@ -154,13 +170,21 @@ if st.button("Générer le simogramme"):
                 hatch=hatch
             ))
 
-        # TRANSPORT MACHINE-MACHINE
+            max_x = max(max_x, end)
+
+        # ===================================================
+        # TRANSPORT / TRANSFERT
+        # ===================================================
         elif ttm:
+
+            start = time_cursor["OP"]
+            end = start + temps
+            time_cursor["OP"] = end
 
             y_top = y_positions[sys]
 
             ax.add_patch(Rectangle(
-                (debut, y_op),
+                (start, y_op),
                 temps,
                 y_top - y_op,
                 facecolor="#f39c12",
@@ -169,11 +193,19 @@ if st.button("Générer le simogramme"):
                 hatch=hatch
             ))
 
-        # TEMPS ZERO / ATTENTE
+            max_x = max(max_x, end)
+
+        # ===================================================
+        # TEMPS ZÉRO / ATTENTE
+        # ===================================================
         elif tz:
 
+            start = time_cursor["OP"]
+            end = start + temps
+            time_cursor["OP"] = end
+
             ax.add_patch(Rectangle(
-                (debut, y_op),
+                (start, y_op),
                 temps,
                 h,
                 facecolor="gray",
@@ -181,15 +213,15 @@ if st.button("Générer le simogramme"):
                 alpha=0.8
             ))
 
-        # LABEL OPERATION
+            max_x = max(max_x, end)
+
+        # LABEL
         if temps >= 0.5:
             y_text = y_op - (0.2 if i % 2 == 0 else 0.45)
-            ax.text(debut + temps / 2, y_text, op, ha="center", fontsize=8)
-
-        debut += temps
+            ax.text(start + temps / 2, y_text, op, ha="center", fontsize=8)
 
     # ===================================================
-    # LIGNES
+    # LIGNES MACHINE
     # ===================================================
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=2)
@@ -218,7 +250,6 @@ if st.button("Générer le simogramme"):
     excel_path = "simogramme.xlsx"
 
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-
         edited_df.to_excel(writer, sheet_name="Données", index=False)
 
         workbook = writer.book
