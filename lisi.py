@@ -82,7 +82,7 @@ edited_df = st.data_editor(
 
 if st.button("Générer le simogramme"):
 
-    fig, ax = plt.subplots(figsize=(16, 4))  # 🔥 más compacto vertical
+    fig, ax = plt.subplots(figsize=(16, 4))  
 
     # ===================================================
     # ESPACIADO MÁS PEQUEÑO
@@ -91,7 +91,7 @@ if st.button("Générer le simogramme"):
     y_op = 0
     y_m2 = -1.2
 
-    h = 0.3  # 🔥 ALTURA PEDIDA
+    h = 0.6
     debut = 0
     max_x = 0
 
@@ -149,7 +149,7 @@ if st.button("Générer le simogramme"):
             ))
 
         # ===================================================
-        # TTM (entre líneas)
+        # TTM
         # ===================================================
         elif ttm:
 
