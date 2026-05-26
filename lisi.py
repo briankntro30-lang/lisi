@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import openpyxl 
 
 st.set_page_config(page_title="Simogramme", layout="wide")
 
@@ -173,3 +174,40 @@ if st.button("Générer le simogramme"):
 
     plt.tight_layout()
     st.pyplot(fig)
+
+        # ===================================================
+    # EXPORT EXCEL + IMAGE
+    # ===================================================
+
+    # Sauvegarder le graphique comme image
+    image_path = "simogramme.png"
+    fig.savefig(image_path, bbox_inches="tight")
+
+    # Créer fichier Excel
+    excel_path = "simogramme.xlsx"
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+
+        # Sauvegarder tableau
+        edited_df.to_excel(writer, sheet_name="Données", index=False)
+
+        # Accéder workbook + worksheet
+        workbook = writer.book
+        worksheet = workbook.create_sheet("Simogramme")
+
+        # Ajouter image
+        from openpyxl.drawing.image import Image
+
+        img = Image(image_path)
+
+        # Position image
+        worksheet.add_image(img, "A1")
+
+    # Bouton téléchargement
+    with open(excel_path, "rb") as f:
+        st.download_button(
+            label="Télécharger Excel",
+            data=f,
+            file_name="simogramme.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
