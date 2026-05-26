@@ -87,8 +87,9 @@ if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 5))
 
-    y_machine = 2
+    y_machine 1 = 2
     y_operateur = 0
+    y_machine 2 = -2
     hauteur = 0.6
 
     debut = 0
