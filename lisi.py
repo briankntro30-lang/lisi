@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from openpyxl.drawing.image import Image
 import openpyxl
 
 st.set_page_config(page_title="Simogramme", layout="wide")
@@ -11,6 +12,9 @@ st.image(
     width=250
 )
 
+# ===================================================
+# LOGIN
+# ===================================================
 def login():
     st.title("Connexion - Simogramme")
 
@@ -29,6 +33,7 @@ def login():
         else:
             st.error("Identifiants incorrects")
 
+
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
@@ -36,33 +41,52 @@ if not st.session_state["logged_in"]:
     login()
     st.stop()
 
+# ===================================================
+# MACHINE SYSTEM
+# ===================================================
+if "machines" not in st.session_state:
+    st.session_state["machines"] = ["M1", "M2"]
+
+if st.button("➕ Ajouter machine"):
+    new_machine = f"M{len(st.session_state['machines']) + 1}"
+    st.session_state["machines"].append(new_machine)
+
 st.title("Simogramme")
 st.markdown("---")
 
-df = pd.DataFrame({
-    "Etape": ["A", "B"],
-    "Temps": [1.2, 2.4],
-    "Sys": ["M1", "M2"],
-    "TT": [True, False],
-    "TM": [False, True],
-    "TTM": [False, False],
-    "TZ": [False, False],
-    "TF": [False, True],
-})
+# ===================================================
+# DATA TABLES (par machine)
+# ===================================================
+dfs = []
 
-edited_df = st.data_editor(
-    df,
-    num_rows="dynamic",
-    use_container_width=True,
-    height=160,
-    column_config={
-        "Sys": st.column_config.SelectboxColumn(
-            "Sys",
-            options=["M1", "M2"]
-        )
-    }
-)
+for machine in st.session_state["machines"]:
 
+    st.subheader(f"Tableau {machine}")
+
+    df_machine = st.data_editor(
+        pd.DataFrame({
+            "Etape": [""],
+            "Temps": [0.0],
+            "TT": [False],
+            "TM": [False],
+            "TTM": [False],
+            "TZ": [False],
+            "TF": [False],
+        }),
+        num_rows="dynamic",
+        use_container_width=True,
+        key=machine
+    )
+
+    df_machine["Sys"] = machine
+    dfs.append(df_machine)
+
+# Fusion finale
+edited_df = pd.concat(dfs, ignore_index=True)
+
+# ===================================================
+# SIMOGRAMME
+# ===================================================
 if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 4))
@@ -70,11 +94,10 @@ if st.button("Générer le simogramme"):
     y_m1 = 1.2
     y_op = 0
     y_m2 = -1.2
-
     h = 0.6
+
     debut = 0
     max_x = 0
-
     toggle_m2 = True
 
     has_m2 = (edited_df["Sys"] == "M2").any()
@@ -125,7 +148,6 @@ if st.button("Générer le simogramme"):
             ))
 
         elif ttm:
-
             y_top = y_m1 if sys == "M1" else y_m2
 
             ax.add_patch(Rectangle(
@@ -175,38 +197,27 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
     st.pyplot(fig)
 
-        # ===================================================
+    # ===================================================
     # EXPORT EXCEL + IMAGE
     # ===================================================
-
-    # Sauvegarder le graphique comme image
     image_path = "simogramme.png"
     fig.savefig(image_path, bbox_inches="tight")
 
-    # Créer fichier Excel
     excel_path = "simogramme.xlsx"
 
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
 
-        # Sauvegarder tableau
         edited_df.to_excel(writer, sheet_name="Données", index=False)
 
-        # Accéder workbook + worksheet
         workbook = writer.book
         worksheet = workbook.create_sheet("Simogramme")
 
-        # Ajouter image
-        from openpyxl.drawing.image import Image
-
         img = Image(image_path)
-
-        # Position image
         worksheet.add_image(img, "A1")
 
-    # Bouton téléchargement
     with open(excel_path, "rb") as f:
         st.download_button(
-            label="Télécharger Excel",
+            label="📥 Télécharger Excel",
             data=f,
             file_name="simogramme.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
