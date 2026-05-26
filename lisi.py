@@ -217,10 +217,16 @@ if st.button("Générer le simogramme"):
         # NOM OPÉRATION
         # ===================================================
 
-        ax.text(
-            debut + temps / 2,
-            y_operateur - 0.35,
-            operation,
+       y_text = y_operateur - 0.35 if _ % 2 == 0 else y_operateur - 0.75
+
+ax.text(
+    debut + temps / 2,
+    y_text,
+    operation,
+    ha="center",
+    fontsize=10,
+    fontweight="bold"
+)
 
             ha="center",
             fontsize=10,
