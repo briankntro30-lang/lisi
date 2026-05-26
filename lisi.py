@@ -87,9 +87,9 @@ if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 5))
 
-    y_machine 1 = 2
+    y_machine_1 = 2
     y_operateur = 0
-    y_machine 2 = -2
+    y_machine_2 = -2
     hauteur = 0.6
 
     debut = 0
@@ -127,7 +127,7 @@ if st.button("Générer le simogramme"):
 
         if tt:
             ax.add_patch(Rectangle(
-                (debut, y_machine),
+                (debut, y_machine_1),
                 temps,
                 hauteur,
                 facecolor="#2ecc71",
@@ -159,7 +159,7 @@ if st.button("Générer le simogramme"):
             ax.add_patch(Rectangle(
                 (debut, y_operateur),
                 temps,
-                y_machine - y_operateur,
+                y_machine_2 + y_operateur,
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
@@ -205,9 +205,9 @@ if st.button("Générer le simogramme"):
     # LINES BASE
     # ===================================================
 
-    ax.hlines(y_machine 1, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_machine_1, 0, max_x, color="black", linewidth=2)
     ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_machine 2, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_machine_2, 0, max_x, color="black", linewidth=2)
 
     # ===================================================
     # LABELS LEFT
