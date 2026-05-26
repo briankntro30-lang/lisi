@@ -158,7 +158,7 @@ if st.button("Générer le simogramme"):
             ax.add_patch(Rectangle(
                 (debut, y_operateur),
                 temps,
-                y_machine - y_operateur + hauteur,
+                y_machine - y_operateur,
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
