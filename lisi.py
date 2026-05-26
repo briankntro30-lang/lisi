@@ -6,12 +6,13 @@ from matplotlib.patches import Rectangle
 st.set_page_config(page_title="Simogramme", layout="wide")
 
 st.image(
-    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png",
-    width=180
+    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
+    width=250
 )
 
 def login():
     st.title("Connexion - Simogramme")
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -56,8 +57,7 @@ edited_df = st.data_editor(
     column_config={
         "Sys": st.column_config.SelectboxColumn(
             "Sys",
-            options=["M1", "M2"],
-            required=True
+            options=["M1", "M2"]
         )
     }
 )
@@ -75,6 +75,8 @@ if st.button("Générer le simogramme"):
     max_x = 0
 
     toggle_m2 = True
+
+    has_m2 = (edited_df["Sys"] == "M2").any()
 
     for i, (_, row) in enumerate(edited_df.iterrows()):
 
@@ -152,11 +154,14 @@ if st.button("Générer le simogramme"):
         debut += temps
 
     ax.hlines(y_m1, 0, max_x, color="black", linewidth=2)
+
+    if has_m2:
+        ax.hlines(y_m2, 0, max_x, color="black", linewidth=2)
+        ax.text(-0.5, y_m2, "Machine 2", ha="right", va="center", fontweight="bold")
+
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_m2, 0, max_x, color="black", linewidth=2)
 
     ax.text(-0.5, y_m1, "Machine 1", ha="right", va="center", fontweight="bold")
-    ax.text(-0.5, y_m2, "Machine 2", ha="right", va="center", fontweight="bold")
     ax.text(-0.5, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
 
     ax.set_xlim(0, max_x)
