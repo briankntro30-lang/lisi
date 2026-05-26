@@ -75,7 +75,7 @@ df = pd.DataFrame({
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False],
 
-    # Temps fréquentiel
+    # Modificateur fréquentiel
     "Tf (Temps frequentiel)": [False, True],
 })
 
@@ -121,7 +121,6 @@ if st.button("Générer le simogramme"):
             ttm = bool(row["TTM (Machine+Humain)"])
             tz = bool(row["TZ (Pause)"])
 
-            # Modificateur fréquentiel
             tf = bool(row["Tf (Temps frequentiel)"])
 
         except:
@@ -178,6 +177,7 @@ if st.button("Générer le simogramme"):
 
         # ===================================================
         # TTM → MACHINE + HUMAIN
+        # SOLO ENTRE LAS DOS LÍNEAS
         # ===================================================
 
         elif ttm:
@@ -185,7 +185,7 @@ if st.button("Générer le simogramme"):
             rect = Rectangle(
                 (debut, y_operateur),
                 temps,
-                (y_machine - y_operateur) + hauteur,
+                y_machine - y_operateur,
 
                 facecolor="#f39c12",
                 edgecolor="black",
