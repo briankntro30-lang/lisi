@@ -50,7 +50,7 @@ if st.button("➕ Ajouter machine"):
     new_machine = f"M{len(st.session_state['machines']) + 1}"
     st.session_state["machines"].append(new_machine)
 
-st.title("Simogramme (Parallèle avec Offset)")
+st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
