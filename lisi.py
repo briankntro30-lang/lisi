@@ -50,8 +50,28 @@ if st.button("➕ Ajouter machine"):
     new_machine = f"M{len(st.session_state['machines']) + 1}"
     st.session_state["machines"].append(new_machine)
 
-st.title("Simogramme (Parallèle)")
+st.title("Simogramme (Parallèle avec Offset)")
 st.markdown("---")
+
+# ===================================================
+# OFFSET (INPUT UTILISATEUR)
+# ===================================================
+st.subheader("Décalage (Offset de démarrage)")
+
+offset = {}
+
+for m in st.session_state["machines"]:
+    offset[m] = st.number_input(
+        f"Offset {m}",
+        value=0.0,
+        step=0.5
+    )
+
+offset["OP"] = st.number_input(
+    "Offset Opérateur",
+    value=0.0,
+    step=0.5
+)
 
 # ===================================================
 # TABLEAUX PAR MACHINE
@@ -91,7 +111,7 @@ if st.button("Générer le simogramme"):
 
     machines = st.session_state["machines"]
 
-    # positions Y dynamiques
+    # positions Y
     y_positions = {}
     step = 1.2
     y_op = 0
@@ -104,15 +124,15 @@ if st.button("Générer le simogramme"):
             y_positions[m] = -step * (i // 2 + 1)
 
     # ===================================================
-    # TEMPS INDÉPENDANTS (IMPORTANT)
+    # TIME CURSOR + OFFSET
     # ===================================================
-    time_cursor = {m: 0 for m in machines}
-    time_cursor["OP"] = 0
+    time_cursor = {m: offset[m] for m in machines}
+    time_cursor["OP"] = offset["OP"]
 
     max_x = 0
 
     # ===================================================
-    # DESSIN
+    # DRAW
     # ===================================================
     for i, (_, row) in enumerate(edited_df.iterrows()):
 
@@ -128,19 +148,15 @@ if st.button("Générer le simogramme"):
 
         hatch = "////" if tf else None
 
-        # ===================================================
-        # MACHINE WORK
-        # ===================================================
+        # MACHINE
         if tt:
 
             start = time_cursor[sys]
             end = start + temps
             time_cursor[sys] = end
 
-            y = y_positions[sys]
-
             ax.add_patch(Rectangle(
-                (start, y),
+                (start, y_positions[sys]),
                 temps,
                 h,
                 facecolor="#2ecc71",
@@ -151,9 +167,7 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # OPÉRATEUR WORK
-        # ===================================================
+        # OPÉRATEUR
         elif tm:
 
             start = time_cursor["OP"]
@@ -172,21 +186,17 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TRANSPORT / TRANSFERT
-        # ===================================================
+        # TRANSFERT
         elif ttm:
 
             start = time_cursor["OP"]
             end = start + temps
             time_cursor["OP"] = end
 
-            y_top = y_positions[sys]
-
             ax.add_patch(Rectangle(
                 (start, y_op),
                 temps,
-                y_top - y_op,
+                y_positions[sys] - y_op,
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
@@ -195,9 +205,7 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TEMPS ZÉRO / ATTENTE
-        # ===================================================
+        # ATTENTE
         elif tz:
 
             start = time_cursor["OP"]
@@ -217,11 +225,10 @@ if st.button("Générer le simogramme"):
 
         # LABEL
         if temps >= 0.5:
-            y_text = y_op - (0.2 if i % 2 == 0 else 0.45)
-            ax.text(start + temps / 2, y_text, op, ha="center", fontsize=8)
+            ax.text(start + temps / 2, y_op - 0.3, op, ha="center", fontsize=8)
 
     # ===================================================
-    # LIGNES MACHINE
+    # LINES
     # ===================================================
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=2)
@@ -230,7 +237,6 @@ if st.button("Générer le simogramme"):
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.text(-0.5, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
 
-    # STYLE
     ax.set_xlim(0, max_x)
     ax.set_xticks([])
     ax.set_yticks([])
