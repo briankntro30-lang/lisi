@@ -40,7 +40,7 @@ st.title("Simogramme")
 st.markdown("---")
 
 df = pd.DataFrame({
-    "Op": ["A", "B"],
+    "Etape": ["A", "B"],
     "Temps": [1.2, 2.4],
     "Sys": ["M1", "M2"],
     "TT": [True, False],
