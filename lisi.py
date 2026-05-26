@@ -62,6 +62,7 @@ df = pd.DataFrame({
     "Numéro": [1, 2],
     "Mode opératoire": ["A", "B"],
     "Temps (s)": [1.2, 2.4],
+    "Systeme (M1/M2)": ["M1", "M2"],  # 🔥 NUEVO
     "TT (Machine)": [True, False],
     "TM (Humain)": [False, True],
     "TTM (Machine+Humain)": [False, False],
@@ -91,6 +92,8 @@ if st.button("Générer le simogramme"):
     debut = 0
     max_x = 0
 
+    machine_toggle = True  # 🔥 pour M2 (alternance)
+
     # ===================================================
     # SIMOGRAMME
     # ===================================================
@@ -100,6 +103,8 @@ if st.button("Générer le simogramme"):
         try:
             operation = str(row["Mode opératoire"])
             temps = float(row["Temps (s)"])
+
+            systeme = str(row["Systeme (M1/M2)"])
 
             tt = bool(row["TT (Machine)"])
             tm = bool(row["TM (Humain)"])
@@ -120,8 +125,16 @@ if st.button("Générer le simogramme"):
         # ===================================================
 
         if tt:
+
+            y_machine = y_machine_1 if systeme == "M1" else (
+                y_machine_1 if machine_toggle else y_machine_2
+            )
+
+            if systeme == "M2":
+                machine_toggle = not machine_toggle
+
             ax.add_patch(Rectangle(
-                (debut, y_machine_1),
+                (debut, y_machine),
                 temps,
                 hauteur,
                 facecolor="#2ecc71",
@@ -204,7 +217,10 @@ if st.button("Générer le simogramme"):
     # LABELS
     # ===================================================
 
-    ax.text(-1.2, y_machine_1 + hauteur / 2, "Machine",
+    ax.text(-1.2, y_machine_1 + hauteur / 2, "Machine 1",
+            fontsize=13, fontweight="bold", va="center", ha="right")
+
+    ax.text(-1.2, y_machine_2 + hauteur / 2, "Machine 2",
             fontsize=13, fontweight="bold", va="center", ha="right")
 
     ax.text(-1.2, y_operateur + hauteur / 2, "Opérateur",
@@ -218,7 +234,7 @@ if st.button("Générer le simogramme"):
     ax.set_xticks([])
     ax.set_xlabel("")
 
-    ax.set_ylim(-1.2, 3.5)
+    ax.set_ylim(-2.8, 3.5)
     ax.set_yticks([])
 
     for spine in ax.spines.values():
