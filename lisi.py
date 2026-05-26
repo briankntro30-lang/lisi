@@ -55,23 +55,22 @@ st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
-# DATA (IMPORTANT: colonne Ressource ajoutée)
+# DATA (CLEAN + SAFE COLUMN NAMES)
 # ===================================================
 
 df = pd.DataFrame({
-    "Numéro": [1, 2, 3],
-    "Mode opératoire": ["A", "B", "C"],
-    "Temps (s)": [1.2, 2.4, 1.8],
+    "Num": [1, 2, 3],
+    "Operation": ["A", "B", "C"],
+    "Time_s": [1.2, 2.4, 1.8],
 
-    # 👇 CLÉ POUR MULTI-LIGNES
-    "Ressource": ["Machine 1", "Opérateur", "Machine 2"],
+    # IMPORTANT: resource for dynamic lanes
+    "Resource": ["Machine 1", "Operator", "Machine 2"],
 
-    "TT (Machine)": [True, False, True],
-    "TM (Humain)": [False, True, False],
-    "TTM (Machine+Humain)": [False, False, False],
-    "TZ (Pause)": [False, False, False],
-
-    "Tf (Temps frequentiel)": [False, True, False],
+    "TT": [True, False, True],
+    "TM": [False, True, False],
+    "TTM": [False, False, False],
+    "TZ": [False, False, False],
+    "TF": [False, True, False],
 })
 
 edited_df = st.data_editor(
@@ -81,50 +80,50 @@ edited_df = st.data_editor(
 )
 
 # ===================================================
-# BUTTON
+# GENERATE BUTTON
 # ===================================================
 
 if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 6))
 
-    hauteur = 0.6
-    debut = 0
+    height = 0.6
+    start = 0
     max_x = 0
 
     # ===================================================
-    # DYNAMIQUE : ressources -> positions Y
+    # DYNAMIC LAYOUT (RESOURCES -> Y POSITIONS)
     # ===================================================
 
-    resources = list(edited_df["Ressource"].dropna().unique())
+    resources = list(edited_df["Resource"].dropna().unique())
     y_positions = {res: -i * 2 for i, res in enumerate(resources)}
 
     # ===================================================
-    # DRAW SIMOGRAMME
+    # DRAW
     # ===================================================
 
     for i, row in edited_df.iterrows():
 
         try:
-            operation = str(row["Mode opératoire"])
-            temps = float(row["Temps (s)"])
-            resource = str(row["Ressource"])
+            operation = str(row["Operation"])
+            time = float(row["Time_s"])
+            resource = str(row["Resource"])
 
-            tt = bool(row["TT (Machine)"])
-            tm = bool(row["TM (Humain)"])
-            ttm = bool(row["TTM (Machine+Humain)"])
-            tz = bool(row["TZ (Pause)"])
-            tf = bool(row["Tf (Temps frequentiel)])
+            tt = bool(row["TT"])
+            tm = bool(row["TM"])
+            ttm = bool(row["TTM"])
+            tz = bool(row["TZ"])
+            tf = bool(row["TF"])
 
         except:
             continue
 
-        fin = debut + temps
-        max_x = max(max_x, fin)
+        end = start + time
+        max_x = max(max_x, end)
 
         y_base = y_positions.get(resource, 0)
 
-        hatch_style = "////" if tf else None
+        hatch = "////" if tf else None
 
         # ===================================================
         # COLOR LOGIC
@@ -146,24 +145,24 @@ if st.button("Générer le simogramme"):
         # ===================================================
 
         ax.add_patch(Rectangle(
-            (debut, y_base),
-            temps,
-            hauteur,
+            (start, y_base),
+            time,
+            height,
             facecolor=color,
             edgecolor="black",
             alpha=0.9,
-            hatch=hatch_style
+            hatch=hatch
         ))
 
         # ===================================================
-        # TEXT (ANTI-OVERLAP SIMPLE)
+        # LABEL (ANTI OVERLAP SIMPLE)
         # ===================================================
 
-        if temps >= 0.5:
+        if time >= 0.5:
             y_text = y_base - 0.4 if i % 2 == 0 else y_base - 0.8
 
             ax.text(
-                debut + temps / 2,
+                start + time / 2,
                 y_text,
                 operation,
                 ha="center",
@@ -171,10 +170,10 @@ if st.button("Générer le simogramme"):
                 fontweight="bold"
             )
 
-        debut += temps
+        start += time
 
     # ===================================================
-    # BASE LINES + LABELS (DYNAMIQUE)
+    # BASE LINES + LABELS
     # ===================================================
 
     for res, y in y_positions.items():
@@ -182,7 +181,7 @@ if st.button("Générer le simogramme"):
 
         ax.text(
             -1.2,
-            y + hauteur / 2,
+            y + height / 2,
             res,
             fontsize=13,
             fontweight="bold",
@@ -191,7 +190,7 @@ if st.button("Générer le simogramme"):
         )
 
     # ===================================================
-    # AXIS CLEAN
+    # CLEAN AXIS
     # ===================================================
 
     ax.set_xlim(0, max_x)
