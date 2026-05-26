@@ -22,7 +22,6 @@ st.image(
 # ===================================================
 
 def login():
-
     st.title("Connexion - Simogramme")
 
     col1, col2 = st.columns(2)
@@ -34,7 +33,6 @@ def login():
         mot_de_passe = st.text_input("Mot de passe", type="password")
 
     if st.button("Se connecter"):
-
         if utilisateur == "admin" and mot_de_passe == "1234":
             st.session_state["logged_in"] = True
             st.rerun()
@@ -57,20 +55,23 @@ st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
-# DATA
+# DATA (IMPORTANT: colonne Ressource ajoutée)
 # ===================================================
 
 df = pd.DataFrame({
-    "Numéro": [1, 2],
-    "Mode opératoire": ["A", "B"],
-    "Temps (s)": [1.2, 2.4],
+    "Numéro": [1, 2, 3],
+    "Mode opératoire": ["A", "B", "C"],
+    "Temps (s)": [1.2, 2.4, 1.8],
 
-    "TT (Machine)": [True, False],
-    "TM (Humain)": [False, True],
-    "TTM (Machine+Humain)": [False, False],
-    "TZ (Pause)": [False, False],
+    # 👇 CLÉ POUR MULTI-LIGNES
+    "Ressource": ["Machine 1", "Opérateur", "Machine 2"],
 
-    "Tf (Temps frequentiel)": [False, True],
+    "TT (Machine)": [True, False, True],
+    "TM (Humain)": [False, True, False],
+    "TTM (Machine+Humain)": [False, False, False],
+    "TZ (Pause)": [False, False, False],
+
+    "Tf (Temps frequentiel)": [False, True, False],
 })
 
 edited_df = st.data_editor(
@@ -85,110 +86,81 @@ edited_df = st.data_editor(
 
 if st.button("Générer le simogramme"):
 
-    fig, ax = plt.subplots(figsize=(16, 5))
+    fig, ax = plt.subplots(figsize=(16, 6))
 
-    y_machine_1 = 2
-    y_operateur = 0
-    y_machine_2 = -2
     hauteur = 0.6
-
     debut = 0
     max_x = 0
 
     # ===================================================
-    # SIMOGRAMME
+    # DYNAMIQUE : ressources -> positions Y
     # ===================================================
 
-    for i, row in enumerate(edited_df.iterrows()):
+    resources = list(edited_df["Ressource"].dropna().unique())
+    y_positions = {res: -i * 2 for i, res in enumerate(resources)}
 
-        _, row = row
+    # ===================================================
+    # DRAW SIMOGRAMME
+    # ===================================================
+
+    for i, row in edited_df.iterrows():
 
         try:
             operation = str(row["Mode opératoire"])
             temps = float(row["Temps (s)"])
+            resource = str(row["Ressource"])
 
             tt = bool(row["TT (Machine)"])
             tm = bool(row["TM (Humain)"])
             ttm = bool(row["TTM (Machine+Humain)"])
             tz = bool(row["TZ (Pause)"])
-            tf = bool(row["Tf (Temps frequentiel)"])
+            tf = bool(row["Tf (Temps frequentiel)])
 
         except:
             continue
 
         fin = debut + temps
-        max_x = fin
+        max_x = max(max_x, fin)
+
+        y_base = y_positions.get(resource, 0)
 
         hatch_style = "////" if tf else None
 
         # ===================================================
-        # MACHINE
+        # COLOR LOGIC
         # ===================================================
 
         if tt:
-            ax.add_patch(Rectangle(
-                (debut, y_machine_1),
-                temps,
-                hauteur,
-                facecolor="#2ecc71",
-                edgecolor="black",
-                alpha=0.9,
-                hatch=hatch_style
-            ))
-
-        # ===================================================
-        # HUMAIN
-        # ===================================================
-
+            color = "#2ecc71"
         elif tm:
-            ax.add_patch(Rectangle(
-                (debut, y_operateur),
-                temps,
-                hauteur,
-                facecolor="#3498db",
-                edgecolor="black",
-                alpha=0.9,
-                hatch=hatch_style
-            ))
-
-        # ===================================================
-        # MACHINE + HUMAIN
-        # ===================================================
-
+            color = "#3498db"
         elif ttm:
-            ax.add_patch(Rectangle(
-                (debut, y_operateur),
-                temps,
-                y_machine_2 + y_operateur,
-                facecolor="#f39c12",
-                edgecolor="black",
-                alpha=0.7,
-                hatch=hatch_style
-            ))
-
-        # ===================================================
-        # PAUSE
-        # ===================================================
-
+            color = "#f39c12"
         elif tz:
-            ax.add_patch(Rectangle(
-                (debut, y_operateur),
-                temps,
-                hauteur,
-                facecolor="gray",
-                edgecolor="black",
-                alpha=0.8
-            ))
+            color = "gray"
+        else:
+            color = "#95a5a6"
 
         # ===================================================
-        # TEXTE OPERATION (ANTI-ENCIMADO)
+        # RECTANGLE
+        # ===================================================
+
+        ax.add_patch(Rectangle(
+            (debut, y_base),
+            temps,
+            hauteur,
+            facecolor=color,
+            edgecolor="black",
+            alpha=0.9,
+            hatch=hatch_style
+        ))
+
+        # ===================================================
+        # TEXT (ANTI-OVERLAP SIMPLE)
         # ===================================================
 
         if temps >= 0.5:
-
-            y_text = (y_operateur - 0.35
-                      if i % 2 == 0
-                      else y_operateur - 0.75)
+            y_text = y_base - 0.4 if i % 2 == 0 else y_base - 0.8
 
             ax.text(
                 debut + temps / 2,
@@ -202,51 +174,31 @@ if st.button("Générer le simogramme"):
         debut += temps
 
     # ===================================================
-    # LINES BASE
+    # BASE LINES + LABELS (DYNAMIQUE)
     # ===================================================
 
-    ax.hlines(y_machine_1, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_machine_2, 1, max_x, color="black", linewidth=2)
+    for res, y in y_positions.items():
+        ax.hlines(y, 0, max_x, color="black", linewidth=2)
+
+        ax.text(
+            -1.2,
+            y + hauteur / 2,
+            res,
+            fontsize=13,
+            fontweight="bold",
+            va="center",
+            ha="right"
+        )
 
     # ===================================================
-    # LABELS LEFT
-    # ===================================================
-
-    ax.text(
-        -1.2,
-        y_machine_1 + hauteur / 2,
-        "Machine",
-        fontsize=13,
-        fontweight="bold",
-        va="center",
-        ha="right"
-    )
-
-    ax.text(
-        -1.2,
-        y_operateur + hauteur / 2,
-        "Opérateur",
-        fontsize=13,
-        fontweight="bold",
-        va="center",
-        ha="right"
-    )
-
-    # ===================================================
-    # AXE X CLEAN
+    # AXIS CLEAN
     # ===================================================
 
     ax.set_xlim(0, max_x)
-    ax.set_xticks([])  
-    ax.set_xlabel("")
-
-    # ===================================================
-    # CLEAN STYLE
-    # ===================================================
-
-    ax.set_ylim(-1.2, 3.5)
+    ax.set_xticks([])
     ax.set_yticks([])
+
+    ax.set_ylim(min(y_positions.values()) - 1, 3)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -257,5 +209,4 @@ if st.button("Générer le simogramme"):
     fig.patch.set_facecolor("white")
 
     plt.tight_layout()
-
     st.pyplot(fig)
