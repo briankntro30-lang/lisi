@@ -215,7 +215,7 @@ if st.button("Générer le simogramme"):
 
     ax.text(
         -1.2,
-        y_machine + hauteur / 2,
+        y_machine_1 + hauteur / 2,
         "Machine",
         fontsize=13,
         fontweight="bold",
