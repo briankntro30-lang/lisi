@@ -14,7 +14,7 @@ st.set_page_config(
 
 st.image(
     "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
-    width=250
+    width=200  # 🔥 más compacto
 )
 
 # ===================================================
@@ -55,193 +55,162 @@ st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
-# DATA
+# DATA (tabla más compacta)
 # ===================================================
 
 df = pd.DataFrame({
-    "Numéro": [1, 2],
-    "Mode opératoire": ["A", "B"],
-    "Temps (s)": [1.2, 2.4],
-    "Systeme (M1/M2)": ["M1", "M2"],  # 🔥 NUEVO
-    "TT (Machine)": [True, False],
-    "TM (Humain)": [False, True],
-    "TTM (Machine+Humain)": [False, False],
-    "TZ (Pause)": [False, False],
-    "Tf (Temps frequentiel)": [False, True],
+    "Op": ["A", "B"],
+    "Temps": [1.2, 2.4],
+    "Sys": ["M1", "M2"],
+    "TT": [True, False],
+    "TM": [False, True],
+    "TTM": [False, False],
+    "TZ": [False, False],
+    "TF": [False, True],
 })
 
 edited_df = st.data_editor(
     df,
     num_rows="dynamic",
-    use_container_width=True
+    use_container_width=True,
+    height=180  # 🔥 compacta la tabla
 )
 
 # ===================================================
-# BUTTON
+# GRAFICO
 # ===================================================
 
 if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 5))
 
-    y_machine_1 = 2
-    y_operateur = 0
-    y_machine_2 = -2
+    y_m1 = 2
+    y_op = 0
+    y_m2 = -2
 
-    hauteur = 0.6
+    h = 0.6
     debut = 0
     max_x = 0
 
-    machine_toggle = True  # 🔥 pour M2 (alternance)
-
-    # ===================================================
-    # SIMOGRAMME
-    # ===================================================
+    toggle_m2 = True
 
     for i, (_, row) in enumerate(edited_df.iterrows()):
 
-        try:
-            operation = str(row["Mode opératoire"])
-            temps = float(row["Temps (s)"])
+        op = str(row["Op"])
+        temps = float(row["Temps"])
+        sys = row["Sys"]
 
-            systeme = str(row["Systeme (M1/M2)"])
-
-            tt = bool(row["TT (Machine)"])
-            tm = bool(row["TM (Humain)"])
-            ttm = bool(row["TTM (Machine+Humain)"])
-            tz = bool(row["TZ (Pause)"])
-            tf = bool(row["Tf (Temps frequentiel)"])
-
-        except:
-            continue
+        tt = row["TT"]
+        tm = row["TM"]
+        ttm = row["TTM"]
+        tz = row["TZ"]
+        tf = row["TF"]
 
         fin = debut + temps
         max_x = fin
 
-        hatch_style = "////" if tf else None
+        hatch = "////" if tf else None
 
         # ===================================================
-        # MACHINE
+        # MACHINE SOLO
         # ===================================================
-
         if tt:
 
-            y_machine = y_machine_1 if systeme == "M1" else (
-                y_machine_1 if machine_toggle else y_machine_2
-            )
+            y = y_m1 if sys == "M1" else (y_m1 if toggle_m2 else y_m2)
 
-            if systeme == "M2":
-                machine_toggle = not machine_toggle
+            if sys == "M2":
+                toggle_m2 = not toggle_m2
 
             ax.add_patch(Rectangle(
-                (debut, y_machine),
+                (debut, y),
                 temps,
-                hauteur,
+                h,
                 facecolor="#2ecc71",
                 edgecolor="black",
                 alpha=0.9,
-                hatch=hatch_style
+                hatch=hatch
             ))
 
         # ===================================================
-        # HUMAIN
+        # OPERADOR SOLO
         # ===================================================
-
         elif tm:
             ax.add_patch(Rectangle(
-                (debut, y_operateur),
+                (debut, y_op),
                 temps,
-                hauteur,
+                h,
                 facecolor="#3498db",
                 edgecolor="black",
                 alpha=0.9,
-                hatch=hatch_style
+                hatch=hatch
             ))
 
         # ===================================================
-        # MACHINE + HUMAIN
+        # MACHINE + OPERADOR (TTM)
+        # 👉 AHORA DEPENDE DE M1/M2
         # ===================================================
-
         elif ttm:
+
+            y_top = y_m1 if sys == "M1" else y_m2
+
             ax.add_patch(Rectangle(
-                (debut, y_operateur),
+                (debut, y_op),
                 temps,
-                2.0,
+                y_top - y_op,   # 🔥 ENTRE MACHINE Y OPERADOR
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
-                hatch=hatch_style
+                hatch=hatch
             ))
 
         # ===================================================
         # PAUSE
         # ===================================================
-
         elif tz:
             ax.add_patch(Rectangle(
-                (debut, y_operateur),
+                (debut, y_op),
                 temps,
-                hauteur,
+                h,
                 facecolor="gray",
                 edgecolor="black",
                 alpha=0.8
             ))
 
         # ===================================================
-        # TEXTE OPERATION (ANTI-ENCIMADO)
+        # TEXTO (anti overlap)
         # ===================================================
-
         if temps >= 0.5:
-            y_text = (y_operateur - 0.35 if i % 2 == 0 else y_operateur - 0.75)
+            y_text = y_op - (0.35 if i % 2 == 0 else 0.75)
 
             ax.text(
                 debut + temps / 2,
                 y_text,
-                operation,
+                op,
                 ha="center",
-                fontsize=10,
-                fontweight="bold"
+                fontsize=9
             )
 
         debut += temps
 
     # ===================================================
-    # BASE LINES
+    # LINES BASE
     # ===================================================
+    ax.hlines(y_m1, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_m2, 0, max_x, color="black", linewidth=2)
 
-    ax.hlines(y_machine_1, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
-    ax.hlines(y_machine_2, 0, max_x, color="black", linewidth=2)
-
-    # ===================================================
-    # LABELS
-    # ===================================================
-
-    ax.text(-1.2, y_machine_1 + hauteur / 2, "Machine 1",
-            fontsize=13, fontweight="bold", va="center", ha="right")
-
-    ax.text(-1.2, y_machine_2 + hauteur / 2, "Machine 2",
-            fontsize=13, fontweight="bold", va="center", ha="right")
-
-    ax.text(-1.2, y_operateur + hauteur / 2, "Opérateur",
-            fontsize=13, fontweight="bold", va="center", ha="right")
+    ax.text(-1, y_m1, "Machine 1", ha="right", va="center", fontweight="bold")
+    ax.text(-1, y_m2, "Machine 2", ha="right", va="center", fontweight="bold")
+    ax.text(-1, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
 
     # ===================================================
-    # CLEAN AXIS
+    # CLEAN
     # ===================================================
-
     ax.set_xlim(0, max_x)
     ax.set_xticks([])
-    ax.set_xlabel("")
-
-    ax.set_ylim(-2.8, 3.5)
     ax.set_yticks([])
-
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
+    for s in ax.spines.values():
+        s.set_visible(False)
 
     plt.tight_layout()
     st.pyplot(fig)
