@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import openpyxl 
+
 
 st.set_page_config(page_title="Simogramme", layout="wide")
 
