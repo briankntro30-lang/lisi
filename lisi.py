@@ -281,8 +281,6 @@ if st.button("Générer le simogramme"):
 
     ax.set_yticks([])
 
-    for spine in ax.spines.values():
-        spine.set_visible(False)
 
     # ===================================================
     # AFFICHAGE
