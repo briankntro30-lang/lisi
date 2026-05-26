@@ -31,17 +31,13 @@ def login():
         utilisateur = st.text_input("Utilisateur")
 
     with col2:
-        mot_de_passe = st.text_input(
-            "Mot de passe",
-            type="password"
-        )
+        mot_de_passe = st.text_input("Mot de passe", type="password")
 
     if st.button("Se connecter"):
 
         if utilisateur == "admin" and mot_de_passe == "1234":
             st.session_state["logged_in"] = True
             st.rerun()
-
         else:
             st.error("Identifiants incorrects")
 
@@ -58,11 +54,10 @@ if not st.session_state["logged_in"]:
 # ===================================================
 
 st.title("Simogramme")
-
 st.markdown("---")
 
 # ===================================================
-# TABLEAU
+# DATA
 # ===================================================
 
 df = pd.DataFrame({
@@ -75,7 +70,6 @@ df = pd.DataFrame({
     "TTM (Machine+Humain)": [False, False],
     "TZ (Pause)": [False, False],
 
-    # Modificateur fréquentiel
     "Tf (Temps frequentiel)": [False, True],
 })
 
@@ -86,33 +80,29 @@ edited_df = st.data_editor(
 )
 
 # ===================================================
-# BOUTON
+# BUTTON
 # ===================================================
 
 if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(16, 5))
 
-    # ===================================================
-    # POSITIONS
-    # ===================================================
-
     y_machine = 2
     y_operateur = 0
-
     hauteur = 0.6
 
-    max_x = 0
     debut = 0
+    max_x = 0
 
     # ===================================================
     # SIMOGRAMME
     # ===================================================
 
-    for _, row in edited_df.iterrows():
+    for i, row in enumerate(edited_df.iterrows()):
+
+        _, row = row
 
         try:
-
             operation = str(row["Mode opératoire"])
             temps = float(row["Temps (s)"])
 
@@ -120,7 +110,6 @@ if st.button("Générer le simogramme"):
             tm = bool(row["TM (Humain)"])
             ttm = bool(row["TTM (Machine+Humain)"])
             tz = bool(row["TZ (Pause)"])
-
             tf = bool(row["Tf (Temps frequentiel)"])
 
         except:
@@ -129,150 +118,105 @@ if st.button("Générer le simogramme"):
         fin = debut + temps
         max_x = fin
 
-        # ===================================================
-        # STYLE TF
-        # ===================================================
-
         hatch_style = "////" if tf else None
 
         # ===================================================
-        # TT → MACHINE
+        # MACHINE
         # ===================================================
 
         if tt:
-
-            rect = Rectangle(
+            ax.add_patch(Rectangle(
                 (debut, y_machine),
                 temps,
                 hauteur,
-
                 facecolor="#2ecc71",
                 edgecolor="black",
                 alpha=0.9,
-
                 hatch=hatch_style
-            )
-
-            ax.add_patch(rect)
+            ))
 
         # ===================================================
-        # TM → HUMAIN
+        # HUMAIN
         # ===================================================
 
         elif tm:
-
-            rect = Rectangle(
+            ax.add_patch(Rectangle(
                 (debut, y_operateur),
                 temps,
                 hauteur,
-
                 facecolor="#3498db",
                 edgecolor="black",
                 alpha=0.9,
-
                 hatch=hatch_style
-            )
-
-            ax.add_patch(rect)
+            ))
 
         # ===================================================
-        # TTM → MACHINE + HUMAIN
+        # MACHINE + HUMAIN
         # ===================================================
 
         elif ttm:
-
-            rect = Rectangle(
+            ax.add_patch(Rectangle(
                 (debut, y_operateur),
                 temps,
                 y_machine - y_operateur + hauteur,
-
                 facecolor="#f39c12",
                 edgecolor="black",
                 alpha=0.7,
-
                 hatch=hatch_style
-            )
-
-            ax.add_patch(rect)
+            ))
 
         # ===================================================
-        # TZ → PAUSE
+        # PAUSE
         # ===================================================
 
         elif tz:
-
-            rect = Rectangle(
+            ax.add_patch(Rectangle(
                 (debut, y_operateur),
                 temps,
                 hauteur,
-
                 facecolor="gray",
                 edgecolor="black",
                 alpha=0.8
+            ))
+
+        # ===================================================
+        # TEXTE OPERATION (ANTI-ENCIMADO)
+        # ===================================================
+
+        if temps >= 0.5:
+
+            y_text = (y_operateur - 0.35
+                      if i % 2 == 0
+                      else y_operateur - 0.75)
+
+            ax.text(
+                debut + temps / 2,
+                y_text,
+                operation,
+                ha="center",
+                fontsize=10,
+                fontweight="bold"
             )
-
-            ax.add_patch(rect)
-
-        # ===================================================
-        # NOM OPÉRATION
-        # ===================================================
-
-       y_text = y_operateur - 0.35 if _ % 2 == 0 else y_operateur - 0.75
-
-ax.text(
-    debut + temps / 2,
-    y_text,
-    operation,
-    ha="center",
-    fontsize=10,
-    fontweight="bold"
-)
-
-            ha="center",
-            fontsize=10,
-            fontweight="bold"
-        )
-
-        # ===================================================
-        # TEMPS CUMULÉ
-        # ===================================================
 
         debut += temps
 
     # ===================================================
-    # LIGNES BASE
+    # LINES BASE
     # ===================================================
 
-    ax.hlines(
-        y_machine,
-        0,
-        max_x,
-
-        color="black",
-        linewidth=2
-    )
-
-    ax.hlines(
-        y_operateur,
-        0,
-        max_x,
-
-        color="black",
-        linewidth=2
-    )
+    ax.hlines(y_machine, 0, max_x, color="black", linewidth=2)
+    ax.hlines(y_operateur, 0, max_x, color="black", linewidth=2)
 
     # ===================================================
-    # TEXTES À GAUCHE
+    # LABELS LEFT
     # ===================================================
 
     ax.text(
         -1.2,
         y_machine + hauteur / 2,
         "Machine",
-
         fontsize=13,
         fontweight="bold",
-
         va="center",
         ha="right"
     )
@@ -281,48 +225,35 @@ ax.text(
         -1.2,
         y_operateur + hauteur / 2,
         "Opérateur",
-
         fontsize=13,
         fontweight="bold",
-
         va="center",
         ha="right"
     )
 
     # ===================================================
-    # AXE X
+    # AXE X CLEAN
     # ===================================================
 
     ax.set_xlim(0, max_x)
-
-    # QUITAR números
-    ax.set_xticks([])
-
-    # QUITAR título eje
+    ax.set_xticks([])  # ❌ no 1 2 3 4
     ax.set_xlabel("")
 
     # ===================================================
-    # STYLE FINAL
+    # CLEAN STYLE
     # ===================================================
 
-    ax.set_ylim(-1, 3.5)
-
+    ax.set_ylim(-1.2, 3.5)
     ax.set_yticks([])
 
-    # Quitar bordes
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
 
-    # Fondo limpio
     ax.set_facecolor("white")
     fig.patch.set_facecolor("white")
 
     plt.tight_layout()
-
-    # ===================================================
-    # AFFICHAGE
-    # ===================================================
 
     st.pyplot(fig)
