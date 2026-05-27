@@ -108,28 +108,24 @@ dfs = []
 for m in st.session_state["machines"]:
 
     # ================= HEADER + DELETE BUTTON =================
-col_title, col_delete = st.columns([6, 1])
+    col_title, col_delete = st.columns([6, 1])
 
-with col_title:
-    st.subheader(f"Tableau {m}")
+    with col_title:
+        st.subheader(f"Tableau {m}")
 
-with col_delete:
+    with col_delete:
 
-    # 🚫 PROTEGER M1
-    if m != "M1":
+        # 🚫 PROTECTION M1
+        if m != "M1":
+            if st.button("🗑️", key=f"del_{m}"):
+                st.session_state["machines"].remove(m)
 
-        if st.button("🗑️", key=f"del_{m}"):
+                if m in st.session_state:
+                    del st.session_state[m]
 
-            st.session_state["machines"].remove(m)
-
-            if m in st.session_state:
-                del st.session_state[m]
-
-            st.rerun()
-
-    else:
-        # espacio invisible para mantener alineación
-        st.write("")
+                st.rerun()
+        else:
+            st.write("")
 
     # ================= DATA EDITOR =================
 
@@ -171,8 +167,12 @@ if st.button("Générer le simogramme"):
     for i, m in enumerate(machines):
         y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
 
+    offset = {}
+    for m in machines:
+        offset[m] = 0
+
     time_cursor = {m: offset[m] for m in machines}
-    time_cursor["OP"] = offset["OP"]
+    time_cursor["OP"] = 0
 
     max_x = 0
 
