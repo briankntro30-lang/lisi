@@ -151,7 +151,7 @@ if st.button("Générer le simogramme"):
 
     max_x = 0
 
-    # ================= KPI =================
+    # KPI
     total_machine_time = 0
     total_operator_time = 0
     total_wait_time = 0
@@ -163,17 +163,18 @@ if st.button("Générer le simogramme"):
         "TZ": "#9ca3af"
     }
 
-    # ================= HATCH FUNCTION =================
-    def draw_hatch(ax, x, y, w, h, spacing=0.2):
+    # ================= HATCH SAFE =================
+    def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
         i = 0
         while i < w + h:
-            ax.plot(
+            line, = ax.plot(
                 [x + i, x + i - h],
                 [y, y + h],
                 color="black",
                 linewidth=0.6,
                 alpha=0.6
             )
+            line.set_clip_path(rect)
             i += spacing
 
     # ================= DRAW =================
@@ -200,18 +201,18 @@ if st.button("Générer le simogramme"):
             time_cursor[sys] = end
             total_machine_time += temps
 
-            ax.add_patch(Rectangle(
+            rect = Rectangle(
                 (start, y_positions[sys]),
                 temps,
                 h,
                 facecolor=COLORS["TT"],
                 edgecolor="black",
                 linewidth=1
-            ))
+            )
+            ax.add_patch(rect)
 
-            # ✔ HATCH si TT + TF
             if tf:
-                draw_hatch(ax, start, y_positions[sys], temps, h)
+                draw_hatch(ax, rect, start, y_positions[sys], temps, h)
 
             max_x = max(max_x, end)
 
@@ -223,18 +224,18 @@ if st.button("Générer le simogramme"):
             time_cursor["OP"] = end
             total_operator_time += temps
 
-            ax.add_patch(Rectangle(
+            rect = Rectangle(
                 (start, y_op),
                 temps,
                 h,
                 facecolor=COLORS["TM"],
                 edgecolor="black",
                 linewidth=1
-            ))
+            )
+            ax.add_patch(rect)
 
-            # ✔ HATCH si TM + TF
             if tf:
-                draw_hatch(ax, start, y_op, temps, h)
+                draw_hatch(ax, rect, start, y_op, temps, h)
 
             max_x = max(max_x, end)
 
@@ -245,27 +246,27 @@ if st.button("Générer le simogramme"):
             end = start + temps
             time_cursor["OP"] = end
             time_cursor[sys] = end
+
             total_operator_time += temps
             total_machine_time += temps
 
-            ax.add_patch(Rectangle(
+            rect = Rectangle(
                 (start, y_op),
                 temps,
                 y_positions[sys] - y_op,
-                facecolor=COLORS["TTM"],
+                facecolor="white",
                 edgecolor="black",
-                linewidth=1,
-                alpha=0.6
-            ))
+                linewidth=1
+            )
+            ax.add_patch(rect)
 
-            # ✔ UNIQUEMENT TTM + TF => diagonale 45°
-            if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_op, y_positions[sys]],
-                    color="black",
-                    linewidth=1
-                )
+            # ✔ ALWAYS diagonal (no TF)
+            ax.plot(
+                [start, start + temps],
+                [y_op, y_positions[sys]],
+                color="black",
+                linewidth=1
+            )
 
             max_x = max(max_x, end)
 
@@ -307,6 +308,7 @@ if st.button("Générer le simogramme"):
     ax.grid(axis="x", alpha=0.2)
 
     plt.tight_layout()
+
     # ===================================================
     # KPI
     # ===================================================
