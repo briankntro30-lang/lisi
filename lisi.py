@@ -188,7 +188,7 @@ if st.button("Générer le simogramme"):
         tt = bool(row["TT"])
         tm = bool(row["TM"])
         ttm = bool(row["TTM"])
-        tz = bool(row["TZ"])
+        tz = bool(row["TR"])
         tf = bool(row["TF"])
 
         start = None
