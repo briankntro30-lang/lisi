@@ -131,7 +131,7 @@ with st.sidebar:
 # TITRE
 # ===================================================
 
-st.title("Simogramme Industriel")
+st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
@@ -170,20 +170,20 @@ edited_df = pd.concat(dfs, ignore_index=True)
 
 if st.button("Générer le simogramme"):
 
-    fig, ax = plt.subplots(figsize=(18, 7))
+    fig, ax = plt.subplots(figsize=(18, 6))
 
-    fig.patch.set_facecolor('#f4f6f9')
-    ax.set_facecolor('#ffffff')
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     machines = st.session_state["machines"]
 
     # ===================================================
-    # POSITIONS Y (OPÉRATEUR CENTRE)
+    # POSITIONS Y (OPERATOR CENTER)
     # ===================================================
 
     y_positions = {}
-    step = 1.5
-    h = 0.6
+    step = 1.2
+    h = 0.25   # 🔥 MÁS FINO COMO EN TU IMAGEN
 
     y_op = 0
 
@@ -201,7 +201,7 @@ if st.button("Générer le simogramme"):
                 y_positions[m] = -step * ((i // 2) + 1)
 
     # ===================================================
-    # CURSEURS
+    # CURSORS
     # ===================================================
 
     time_cursor = {m: offset[m] for m in machines}
@@ -214,14 +214,14 @@ if st.button("Générer le simogramme"):
     total_wait_time = 0
 
     COLORS = {
-        "TT": "#16a34a",
-        "TM": "#2563eb",
-        "TTM": "#ea580c",
-        "TZ": "#6b7280"
+        "TT": "#1f4fff",
+        "TM": "#ff8c00",
+        "TTM": "#111827",
+        "TZ": "#9ca3af"
     }
 
     # ===================================================
-    # DESSIN
+    # DRAW
     # ===================================================
 
     for i, (_, row) in enumerate(edited_df.iterrows()):
@@ -236,7 +236,9 @@ if st.button("Générer le simogramme"):
         tz = bool(row["TZ"])
         tf = bool(row["TF"])
 
-        hatch = "////" if tf else None
+        hatch = "///" if tf else None
+
+        # ================= MACHINE =================
 
         if tt:
 
@@ -251,11 +253,15 @@ if st.button("Générer le simogramme"):
                 h,
                 facecolor=COLORS["TT"],
                 edgecolor="black",
-                alpha=0.9,
-                hatch=hatch
+                linewidth=1,
+                alpha=1,
+                hatch=hatch,
+                zorder=3
             ))
 
             max_x = max(max_x, end)
+
+        # ================= OPERATOR =================
 
         elif tm:
 
@@ -270,11 +276,14 @@ if st.button("Générer le simogramme"):
                 h,
                 facecolor=COLORS["TM"],
                 edgecolor="black",
-                alpha=0.9,
-                hatch=hatch
+                linewidth=1,
+                alpha=1,
+                zorder=3
             ))
 
             max_x = max(max_x, end)
+
+        # ================= TRANSFERT =================
 
         elif ttm:
 
@@ -290,11 +299,14 @@ if st.button("Générer le simogramme"):
                 y_positions[sys] - y_op,
                 facecolor=COLORS["TTM"],
                 edgecolor="black",
-                alpha=0.7,
-                hatch=hatch
+                linewidth=1,
+                alpha=0.6,
+                zorder=2
             ))
 
             max_x = max(max_x, end)
+
+        # ================= WAIT =================
 
         elif tz:
 
@@ -309,29 +321,71 @@ if st.button("Générer le simogramme"):
                 h,
                 facecolor=COLORS["TZ"],
                 edgecolor="black",
-                alpha=0.8
+                linewidth=1,
+                alpha=0.6,
+                zorder=2
             ))
 
             max_x = max(max_x, end)
 
+        # LABEL (más limpio)
         if temps >= 0.5:
-            ax.text(start + temps / 2, y_op - 0.35, op,
-                    ha="center", fontsize=8, color="#111827")
+            ax.text(
+                start + temps / 2,
+                y_op - 0.25,
+                op,
+                ha="center",
+                fontsize=9,
+                fontweight="bold",
+                color="#111827"
+            )
 
     # ===================================================
-    # LIGNES
+    # LINES
     # ===================================================
 
     for m, y in y_positions.items():
-        ax.hlines(y, 0, max_x, color="black", linewidth=2)
-        ax.text(-0.5, y, m, ha="right", va="center", fontweight="bold")
 
-    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
-    ax.text(-0.5, y_op, "Opérateur", ha="right", va="center", fontweight="bold")
+        ax.hlines(
+            y,
+            0,
+            max_x,
+            color="#111827",
+            linewidth=1.5
+        )
+
+        ax.text(
+            -2,
+            y,
+            m,
+            ha="right",
+            va="center",
+            fontsize=14,   # 🔥 MÁS GRANDE
+            fontweight="bold",
+            color="#111827"
+        )
+
+    ax.hlines(0, 0, max_x, color="#111827", linewidth=2)
+
+    ax.text(
+        -2,
+        y_op,
+        "Opérateur",
+        ha="right",
+        va="center",
+        fontsize=16,   # 🔥 MÁS GRANDE
+        fontweight="bold",
+        color="#111827"
+    )
+
+    # ===================================================
+    # AXES CLEAN
+    # ===================================================
 
     ax.set_xlim(0, max_x + 2)
     ax.set_xticks(range(0, int(max_x) + 2, 5))
-    ax.grid(axis="x", linestyle="--", alpha=0.3)
+    ax.grid(axis="x", linestyle="--", alpha=0.2)
+
     ax.set_yticks([])
 
     for s in ax.spines.values():
