@@ -9,10 +9,7 @@ from datetime import datetime
 # CONFIG PAGE
 # ===================================================
 
-st.set_page_config(
-    page_title="Simogramme",
-    layout="wide"
-)
+st.set_page_config(page_title="Simogramme", layout="wide")
 
 # ===================================================
 # STYLE INDUSTRIEL
@@ -70,65 +67,29 @@ st.image(
 )
 
 # ===================================================
-# LOGIN (ELEGANT)
+# LOGIN (FIXED - CLEAN)
 # ===================================================
 
 def login():
 
-    st.markdown("""
-    <style>
-    .login-box {
-        background: white;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0px 4px 20px rgba(0,0,0,0.1);
-        width: 420px;
-        margin: auto;
-    }
+    st.markdown("## Connexion - Simogramme")
 
-    .login-title {
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 20px;
-        color: #1f2937;
-    }
-
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        height: 45px;
-        background-color: #1f2937;
-        color: white;
-        font-weight: bold;
-    }
-
-    .stButton>button:hover {
-        background-color: #374151;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
-    st.markdown('<div class="login-title">Connexion Simogramme</div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        utilisateur = st.text_input("Utilisateur")
+    col1, col2, col3 = st.columns([1,2,1])
 
     with col2:
-        mot_de_passe = st.text_input("Mot de passe", type="password")
 
-    if st.button("Se connecter"):
+        with st.container():
 
-        if utilisateur == "admin" and mot_de_passe == "1234":
-            st.session_state["logged_in"] = True
-            st.rerun()
-        else:
-            st.error("Identifiants incorrects")
+            utilisateur = st.text_input("Utilisateur")
+            mot_de_passe = st.text_input("Mot de passe", type="password")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("Se connecter"):
+
+                if utilisateur == "admin" and mot_de_passe == "1234":
+                    st.session_state["logged_in"] = True
+                    st.rerun()
+                else:
+                    st.error("Identifiants incorrects")
 
 
 if "logged_in" not in st.session_state:
@@ -139,7 +100,7 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 # ===================================================
-# SIDEBAR
+# SIDEBAR (START WITH ONLY M1)
 # ===================================================
 
 with st.sidebar:
@@ -147,8 +108,9 @@ with st.sidebar:
     st.title("Configuration")
     st.markdown("---")
 
+    # 🔥 START WITH ONLY ONE MACHINE
     if "machines" not in st.session_state:
-        st.session_state["machines"] = ["M1", "M2"]
+        st.session_state["machines"] = ["M1"]
 
     if st.button("➕ Ajouter machine"):
         new_machine = f"M{len(st.session_state['machines']) + 1}"
@@ -378,7 +340,7 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
 
     # ===================================================
-    # KPI (NO CAMBIADO)
+    # KPI (UNCHANGED)
     # ===================================================
 
     st.markdown("## KPI")
