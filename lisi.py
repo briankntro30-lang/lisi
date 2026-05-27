@@ -108,19 +108,28 @@ dfs = []
 for m in st.session_state["machines"]:
 
     # ================= HEADER + DELETE BUTTON =================
-    col_title, col_delete = st.columns([5, 1])
+col_title, col_delete = st.columns([6, 1])
 
-    with col_title:
-        st.subheader(f"Tableau {m}")
+with col_title:
+    st.subheader(f"Tableau {m}")
 
-    with col_delete:
-        if st.button("❌", key=f"del_{m}"):
+with col_delete:
+
+    # 🚫 PROTEGER M1
+    if m != "M1":
+
+        if st.button("🗑️", key=f"del_{m}"):
+
             st.session_state["machines"].remove(m)
 
             if m in st.session_state:
                 del st.session_state[m]
 
             st.rerun()
+
+    else:
+        # espacio invisible para mantener alineación
+        st.write("")
 
     # ================= DATA EDITOR =================
 
