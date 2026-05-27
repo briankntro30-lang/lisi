@@ -118,7 +118,7 @@ with st.sidebar:
 
     # MACHINES
     if "machines" not in st.session_state:
-        st.session_state["machines"] = ["M1", "M2"]
+    st.session_state["machines"] = ["M1"]
 
     if st.button("➕ Ajouter machine"):
 
@@ -149,7 +149,7 @@ with st.sidebar:
 # TITRE
 # ===================================================
 
-st.title("Simogramme Industriel")
+st.title("Simogramme")
 st.markdown("---")
 
 # ===================================================
