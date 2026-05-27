@@ -83,7 +83,10 @@ if not st.session_state["logged_in"]:
 # ===================================================
 
 with st.sidebar:
-
+st.image(
+    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
+    width=250
+)
     st.title("Configuration")
 
     if "machines" not in st.session_state:
@@ -93,11 +96,6 @@ with st.sidebar:
         st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
         st.rerun()
 
-    offset = {}
-    for m in st.session_state["machines"]:
-        offset[m] = st.number_input(f"Offset {m}", value=0.0, step=0.5)
-
-    offset["OP"] = st.number_input("Offset Opérateur", value=0.0, step=0.5)
 
 # ===================================================
 # TABLES
