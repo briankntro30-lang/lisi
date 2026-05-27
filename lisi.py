@@ -6,21 +6,19 @@ from openpyxl.drawing.image import Image
 from datetime import datetime
 
 # ===================================================
-# CONFIG PAGE
+# CONFIG
 # ===================================================
 
 st.set_page_config(page_title="Simogramme", layout="wide")
 
 # ===================================================
-# STYLE INDUSTRIEL
+# STYLE
 # ===================================================
 
 st.markdown("""
 <style>
 
-.main {
-    background-color: #f4f6f9;
-}
+.main { background-color: #f4f6f9; }
 
 h1, h2, h3 {
     color: #1f2937;
@@ -33,41 +31,17 @@ h1, h2, h3 {
     border-radius: 8px;
     height: 45px;
     font-weight: bold;
-    border: none;
 }
 
 .stButton>button:hover {
     background-color: #374151;
-    color: white;
-}
-
-[data-testid="stDataFrame"] {
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid #d1d5db;
-}
-
-div[data-testid="metric-container"] {
-    background-color: white;
-    border: 1px solid #d1d5db;
-    padding: 15px;
-    border-radius: 10px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 # ===================================================
-# LOGO
-# ===================================================
-
-st.image(
-    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
-    width=250
-)
-
-# ===================================================
-# LOGIN (FIXED - CLEAN)
+# LOGIN CLEAN
 # ===================================================
 
 def login():
@@ -78,18 +52,16 @@ def login():
 
     with col2:
 
-        with st.container():
+        user = st.text_input("Utilisateur")
+        pwd = st.text_input("Mot de passe", type="password")
 
-            utilisateur = st.text_input("Utilisateur")
-            mot_de_passe = st.text_input("Mot de passe", type="password")
+        if st.button("Se connecter"):
 
-            if st.button("Se connecter"):
-
-                if utilisateur == "admin" and mot_de_passe == "1234":
-                    st.session_state["logged_in"] = True
-                    st.rerun()
-                else:
-                    st.error("Identifiants incorrects")
+            if user == "admin" and pwd == "1234":
+                st.session_state["logged_in"] = True
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects")
 
 
 if "logged_in" not in st.session_state:
@@ -100,51 +72,45 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 # ===================================================
-# SIDEBAR (START WITH ONLY M1)
+# SIDEBAR
 # ===================================================
 
 with st.sidebar:
 
     st.title("Configuration")
-    st.markdown("---")
 
-    # 🔥 START WITH ONLY ONE MACHINE
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
 
     if st.button("➕ Ajouter machine"):
-        new_machine = f"M{len(st.session_state['machines']) + 1}"
-        st.session_state["machines"].append(new_machine)
+        st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
 
     st.markdown("---")
 
-    st.subheader("Offsets")
-
     offset = {}
-
     for m in st.session_state["machines"]:
         offset[m] = st.number_input(f"Offset {m}", value=0.0, step=0.5)
 
     offset["OP"] = st.number_input("Offset Opérateur", value=0.0, step=0.5)
 
 # ===================================================
-# TITRE
+# TITLE
 # ===================================================
 
-st.title("Simogramme")
+st.title("Simogramme Industriel")
 st.markdown("---")
 
 # ===================================================
-# TABLEAUX
+# TABLES
 # ===================================================
 
 dfs = []
 
-for machine in st.session_state["machines"]:
+for m in st.session_state["machines"]:
 
-    st.subheader(f"Tableau {machine}")
+    st.subheader(f"Tableau {m}")
 
-    df_machine = st.data_editor(
+    df = st.data_editor(
         pd.DataFrame({
             "Etape": [""],
             "Temps": [0.0],
@@ -155,12 +121,12 @@ for machine in st.session_state["machines"]:
             "TF": [False],
         }),
         num_rows="dynamic",
-        use_container_width=True,
-        key=machine
+        key=m,
+        use_container_width=True
     )
 
-    df_machine["Sys"] = machine
-    dfs.append(df_machine)
+    df["Sys"] = m
+    dfs.append(df)
 
 edited_df = pd.concat(dfs, ignore_index=True)
 
@@ -172,34 +138,22 @@ if st.button("Générer le simogramme"):
 
     fig, ax = plt.subplots(figsize=(18, 6))
 
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-
     machines = st.session_state["machines"]
 
     # ===================================================
-    # POSITIONS Y
+    # POSITIONS (COMPACT + CENTER OP)
     # ===================================================
 
     y_positions = {}
-
-    step = 0.6   # 🔥 MITAD DEL ESPACIO (ANTES ~1.2–1.5)
-    h = 0.22     # 🔥 MÁS FINO
-
+    step = 0.6   # compact
+    h = 0.22     # thin bars
     y_op = 0
 
-    n = len(machines)
-
     for i, m in enumerate(machines):
-
-        if n == 1:
-            y_positions[m] = step
-
+        if i % 2 == 0:
+            y_positions[m] = step * ((i // 2) + 1)
         else:
-            if i % 2 == 0:
-                y_positions[m] = step * ((i // 2) + 1)
-            else:
-                y_positions[m] = -step * ((i // 2) + 1)
+            y_positions[m] = -step * ((i // 2) + 1)
 
     # ===================================================
     # CURSORS
@@ -225,7 +179,7 @@ if st.button("Générer le simogramme"):
     # DRAW
     # ===================================================
 
-    for i, (_, row) in enumerate(edited_df.iterrows()):
+    for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
         temps = float(row["Temps"])
@@ -258,7 +212,7 @@ if st.button("Générer le simogramme"):
                 zorder=3
             ))
 
-            # 🔥 LÍNEA DIAGONAL 45° SI TF
+            # 🔥 DIAGONAL 45° IF TF
             if tf:
                 ax.plot(
                     [start, start + temps],
@@ -307,8 +261,7 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TTM"],
                 edgecolor="black",
                 linewidth=1,
-                alpha=0.6,
-                zorder=2
+                alpha=0.6
             ))
 
             max_x = max(max_x, end)
@@ -336,53 +289,31 @@ if st.button("Générer le simogramme"):
 
         # LABEL
         if temps >= 0.5:
-            ax.text(
-                start + temps / 2,
-                y_op - 0.18,
-                op,
-                ha="center",
-                fontsize=9,
-                fontweight="bold"
-            )
+            ax.text(start + temps / 2, y_op - 0.18,
+                    op, ha="center", fontsize=9, fontweight="bold")
 
     # ===================================================
-    # LINES (COMPACT CLEAN)
+    # LINES
     # ===================================================
 
     for m, y in y_positions.items():
-
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
-
-        ax.text(
-            -1.5,
-            y,
-            m,
-            ha="right",
-            va="center",
-            fontsize=14,
-            fontweight="bold"
-        )
+        ax.text(-1.5, y, m, ha="right", va="center",
+                fontsize=14, fontweight="bold")
 
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
 
-    ax.text(
-        -1.5,
-        y_op,
-        "Opérateur",
-        ha="right",
-        va="center",
-        fontsize=16,
-        fontweight="bold"
-    )
+    ax.text(-1.5, y_op, "Opérateur",
+            ha="right", va="center",
+            fontsize=16, fontweight="bold")
 
     # ===================================================
-    # AXES CLEAN
+    # AXIS CLEAN
     # ===================================================
 
     ax.set_xlim(0, max_x + 2)
     ax.set_xticks(range(0, int(max_x) + 2, 5))
     ax.grid(axis="x", linestyle="--", alpha=0.2)
-
     ax.set_yticks([])
 
     for s in ax.spines.values():
@@ -391,7 +322,7 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
 
     # ===================================================
-    # KPI (UNCHANGED)
+    # KPI
     # ===================================================
 
     st.markdown("## KPI")
@@ -402,8 +333,6 @@ if st.button("Générer le simogramme"):
     col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
     col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
     col4.metric("Attente", f"{round(total_wait_time, 2)} s")
-
-    st.success("Simogramme généré avec succès")
 
     st.pyplot(fig)
 
@@ -420,31 +349,11 @@ if st.button("Générer le simogramme"):
 
         edited_df.to_excel(writer, sheet_name="Données", index=False)
 
-        workbook = writer.book
-        worksheet = workbook.create_sheet("Simogramme")
+        wb = writer.book
+        ws = wb.create_sheet("Simogramme")
 
         img = Image(image_path)
-        worksheet.add_image(img, "A1")
+        ws.add_image(img, "A1")
 
-        worksheet["A25"] = "Date"
-        worksheet["B25"] = str(datetime.now())
-
-        worksheet["A26"] = "Temps cycle"
-        worksheet["B26"] = round(max_x, 2)
-
-        worksheet["A27"] = "Temps machine"
-        worksheet["B27"] = round(total_machine_time, 2)
-
-        worksheet["A28"] = "Temps opérateur"
-        worksheet["B28"] = round(total_operator_time, 2)
-
-        worksheet["A29"] = "Temps attente"
-        worksheet["B29"] = round(total_wait_time, 2)
-
-    with open(excel_path, "rb") as f:
-        st.download_button(
-            "📥 Télécharger Excel",
-            f,
-            file_name="simogramme.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        ws["A25"] = "Date"
+        ws["B25"] = str(datetime.now())
