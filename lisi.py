@@ -138,8 +138,6 @@ if st.button("Générer le simogramme"):
 
     machines = st.session_state["machines"]
 
-    # ================= POSITIONS =================
-
     y_positions = {}
     step = 0.6
     h = 0.22
@@ -148,12 +146,15 @@ if st.button("Générer le simogramme"):
     for i, m in enumerate(machines):
         y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
 
-    # ================= CURSORS =================
-
     time_cursor = {m: offset[m] for m in machines}
     time_cursor["OP"] = offset["OP"]
 
     max_x = 0
+
+    # ================= KPI FIX =================
+    total_machine_time = 0
+    total_operator_time = 0
+    total_wait_time = 0
 
     COLORS = {
         "TT": "#1f4fff",
@@ -161,8 +162,6 @@ if st.button("Générer le simogramme"):
         "TTM": "#111827",
         "TZ": "#9ca3af"
     }
-
-    # ================= DRAW =================
 
     for _, row in edited_df.iterrows():
 
@@ -184,6 +183,7 @@ if st.button("Générer le simogramme"):
             start = time_cursor[sys]
             end = start + temps
             time_cursor[sys] = end
+            total_machine_time += temps
 
             ax.add_patch(Rectangle(
                 (start, y_positions[sys]),
@@ -194,14 +194,6 @@ if st.button("Générer le simogramme"):
                 linewidth=1
             ))
 
-            if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_positions[sys], y_positions[sys] + h],
-                    color="black",
-                    linewidth=1
-                )
-
             max_x = max(max_x, end)
 
         # ================= OPERATOR =================
@@ -210,6 +202,7 @@ if st.button("Générer le simogramme"):
             start = time_cursor["OP"]
             end = start + temps
             time_cursor["OP"] = end
+            total_operator_time += temps
 
             ax.add_patch(Rectangle(
                 (start, y_op),
@@ -220,14 +213,6 @@ if st.button("Générer le simogramme"):
                 linewidth=1
             ))
 
-            if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_op, y_op + h],
-                    color="black",
-                    linewidth=1
-                )
-
             max_x = max(max_x, end)
 
         # ================= TRANSFERT =================
@@ -237,6 +222,8 @@ if st.button("Générer le simogramme"):
             end = start + temps
             time_cursor["OP"] = end
             time_cursor[sys] = end
+            total_operator_time += temps
+            total_machine_time += temps
 
             ax.add_patch(Rectangle(
                 (start, y_op),
@@ -249,12 +236,12 @@ if st.button("Générer le simogramme"):
             ))
 
             # ===================================================
-            # ✔ FIX FINAL: UNA SOLA DIAGONAL TTM
+            # ✔ SEULE DIAGONALE (45° approx)
             # ===================================================
             if tf:
                 ax.plot(
                     [start, start + temps],
-                    [y_op, y_positions[sys]],
+                    [y_op, y_op + temps],  # force 45°
                     color="black",
                     linewidth=1
                 )
@@ -267,6 +254,7 @@ if st.button("Générer le simogramme"):
             start = time_cursor["OP"]
             end = start + temps
             time_cursor["OP"] = end
+            total_wait_time += temps
 
             ax.add_patch(Rectangle(
                 (start, y_op),
@@ -280,12 +268,9 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # LABEL
         if temps >= 0.5:
             ax.text(start + temps/2, y_op - 0.18, op,
                     ha="center", fontsize=9)
-
-    # ================= LINES =================
 
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
@@ -301,9 +286,8 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
     st.pyplot(fig)
 
-    
     # ===================================================
-    # KPI (UNCHANGED)
+    # KPI
     # ===================================================
 
     st.markdown("## KPI")
