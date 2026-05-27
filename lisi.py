@@ -132,7 +132,8 @@ for m in st.session_state["machines"]:
     df = st.data_editor(
         pd.DataFrame({
             "Etape": [""],
-            "Temps": [0.0],
+            "Début": [0.0],
+            "Durée": [0.0],
             "TT": [False],
             "TM": [False],
             "TTM": [False],
@@ -167,13 +168,6 @@ if st.button("Générer le simogramme"):
     for i, m in enumerate(machines):
         y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
 
-    offset = {}
-    for m in machines:
-        offset[m] = 0
-
-    time_cursor = {m: offset[m] for m in machines}
-    time_cursor["OP"] = 0
-
     max_x = 0
 
     total_machine_time = 0
@@ -203,7 +197,10 @@ if st.button("Générer le simogramme"):
     for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
-        temps = float(row["Temps"])
+        start = float(row["Début"])
+        temps = float(row["Durée"])
+        end = start + temps
+
         sys = str(row["Sys"])
 
         tt = bool(row["TT"])
@@ -212,13 +209,8 @@ if st.button("Générer le simogramme"):
         tz = bool(row["TR"])
         tf = bool(row["TF"])
 
-        start = None
-
         if tt:
 
-            start = time_cursor[sys]
-            end = start + temps
-            time_cursor[sys] = end
             total_machine_time += temps
 
             rect = Rectangle((start, y_positions[sys]), temps, h,
@@ -232,9 +224,6 @@ if st.button("Générer le simogramme"):
 
         elif tm:
 
-            start = time_cursor["OP"]
-            end = start + temps
-            time_cursor["OP"] = end
             total_operator_time += temps
 
             rect = Rectangle((start, y_op), temps, h,
@@ -247,11 +236,6 @@ if st.button("Générer le simogramme"):
             max_x = max(max_x, end)
 
         elif ttm:
-
-            start = max(time_cursor["OP"], time_cursor[sys])
-            end = start + temps
-            time_cursor["OP"] = end
-            time_cursor[sys] = end
 
             total_operator_time += temps
             total_machine_time += temps
@@ -271,9 +255,6 @@ if st.button("Générer le simogramme"):
 
         elif tz:
 
-            start = time_cursor["OP"]
-            end = start + temps
-            time_cursor["OP"] = end
             total_wait_time += temps
 
             ax.add_patch(Rectangle((start, y_op), temps, h,
