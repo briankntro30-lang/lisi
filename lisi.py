@@ -40,6 +40,15 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
+# LOGO
+# ===================================================
+
+st.image(
+    "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
+    width=250
+)
+
+
 # ===================================================
 # LOGIN
 # ===================================================
