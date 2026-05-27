@@ -178,12 +178,13 @@ if st.button("Générer le simogramme"):
     machines = st.session_state["machines"]
 
     # ===================================================
-    # POSITIONS Y (OPERATOR CENTER)
+    # POSITIONS Y
     # ===================================================
 
     y_positions = {}
-    step = 1.2
-    h = 0.25   # 🔥 MÁS FINO COMO EN TU IMAGEN
+
+    step = 0.6   # 🔥 MITAD DEL ESPACIO (ANTES ~1.2–1.5)
+    h = 0.22     # 🔥 MÁS FINO
 
     y_op = 0
 
@@ -236,8 +237,6 @@ if st.button("Générer le simogramme"):
         tz = bool(row["TZ"])
         tf = bool(row["TF"])
 
-        hatch = "///" if tf else None
-
         # ================= MACHINE =================
 
         if tt:
@@ -255,9 +254,18 @@ if st.button("Générer le simogramme"):
                 edgecolor="black",
                 linewidth=1,
                 alpha=1,
-                hatch=hatch,
+                hatch="///" if tf else None,
                 zorder=3
             ))
+
+            # 🔥 LÍNEA DIAGONAL 45° SI TF
+            if tf:
+                ax.plot(
+                    [start, start + temps],
+                    [y_positions[sys], y_positions[sys] + h],
+                    color="black",
+                    linewidth=1
+                )
 
             max_x = max(max_x, end)
 
@@ -277,8 +285,7 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TM"],
                 edgecolor="black",
                 linewidth=1,
-                alpha=1,
-                zorder=3
+                alpha=1
             ))
 
             max_x = max(max_x, end)
@@ -322,60 +329,50 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TZ"],
                 edgecolor="black",
                 linewidth=1,
-                alpha=0.6,
-                zorder=2
+                alpha=0.6
             ))
 
             max_x = max(max_x, end)
 
-        # LABEL (más limpio)
+        # LABEL
         if temps >= 0.5:
             ax.text(
                 start + temps / 2,
-                y_op - 0.25,
+                y_op - 0.18,
                 op,
                 ha="center",
                 fontsize=9,
-                fontweight="bold",
-                color="#111827"
+                fontweight="bold"
             )
 
     # ===================================================
-    # LINES
+    # LINES (COMPACT CLEAN)
     # ===================================================
 
     for m, y in y_positions.items():
 
-        ax.hlines(
-            y,
-            0,
-            max_x,
-            color="#111827",
-            linewidth=1.5
-        )
+        ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
 
         ax.text(
-            -2,
+            -1.5,
             y,
             m,
             ha="right",
             va="center",
-            fontsize=14,   # 🔥 MÁS GRANDE
-            fontweight="bold",
-            color="#111827"
+            fontsize=14,
+            fontweight="bold"
         )
 
-    ax.hlines(0, 0, max_x, color="#111827", linewidth=2)
+    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
 
     ax.text(
-        -2,
+        -1.5,
         y_op,
         "Opérateur",
         ha="right",
         va="center",
-        fontsize=16,   # 🔥 MÁS GRANDE
-        fontweight="bold",
-        color="#111827"
+        fontsize=16,
+        fontweight="bold"
     )
 
     # ===================================================
