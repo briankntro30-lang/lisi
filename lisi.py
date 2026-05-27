@@ -41,13 +41,10 @@ h1, h2, h3 {
 """, unsafe_allow_html=True)
 
 # LOGO
-# ===================================================
-
 st.image(
     "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
     width=250
 )
-
 
 # ===================================================
 # LOGIN
@@ -129,6 +126,23 @@ for m in st.session_state["machines"]:
 edited_df = pd.concat(dfs, ignore_index=True)
 
 # ===================================================
+# HELPERS
+# ===================================================
+
+def draw_parallel_diagonals(ax, x, y, w, h, n=3):
+    for i in range(n):
+        offset = i * (h / (n + 1))
+        ax.plot(
+            [x, x + w],
+            [y + offset, y + h + offset],
+            color="black",
+            linewidth=1
+        )
+
+def draw_single_diagonal(ax, x1, y1, x2, y2):
+    ax.plot([x1, x2], [y1, y2], color="black", linewidth=1)
+
+# ===================================================
 # SIMOGRAMME
 # ===================================================
 
@@ -138,8 +152,6 @@ if st.button("Générer le simogramme"):
 
     machines = st.session_state["machines"]
 
-    # ================= POSITIONS =================
-
     y_positions = {}
     step = 0.6
     h = 0.22
@@ -147,8 +159,6 @@ if st.button("Générer le simogramme"):
 
     for i, m in enumerate(machines):
         y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
-
-    # ================= CURSORS =================
 
     time_cursor = {m: offset[m] for m in machines}
     time_cursor["OP"] = offset["OP"]
@@ -162,8 +172,6 @@ if st.button("Générer le simogramme"):
         "TZ": "#9ca3af"
     }
 
-    # ================= DRAW =================
-
     for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
@@ -176,7 +184,9 @@ if st.button("Générer le simogramme"):
         tz = bool(row["TZ"])
         tf = bool(row["TF"])
 
-        # ================= MACHINE =================
+        start = None
+
+        # ================= TT =================
         if tt:
 
             start = time_cursor[sys]
@@ -192,18 +202,12 @@ if st.button("Générer le simogramme"):
                 linewidth=1
             ))
 
-            # ✔ DIAGONAL (TT + TF)
             if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_positions[sys], y_positions[sys] + h],
-                    color="black",
-                    linewidth=1
-                )
+                draw_parallel_diagonals(ax, start, y_positions[sys], temps, h)
 
             max_x = max(max_x, end)
 
-        # ================= OPERATOR =================
+        # ================= TM =================
         elif tm:
 
             start = time_cursor["OP"]
@@ -219,18 +223,12 @@ if st.button("Générer le simogramme"):
                 linewidth=1
             ))
 
-            # ✔ DIAGONAL (TM + TF)
             if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_op, y_op + h],
-                    color="black",
-                    linewidth=1
-                )
+                draw_parallel_diagonals(ax, start, y_op, temps, h)
 
             max_x = max(max_x, end)
 
-        # ================= TRANSFERT =================
+        # ================= TTM =================
         elif ttm:
 
             start = max(time_cursor["OP"], time_cursor[sys])
@@ -248,18 +246,17 @@ if st.button("Générer le simogramme"):
                 alpha=0.6
             ))
 
-            # ✔ DIAGONAL (TTM + TF)
+            # ✔ SOLO UNA DIAGONAL (TTM)
             if tf:
-                ax.plot(
-                    [start, start + temps],
-                    [y_op, y_positions[sys]],
-                    color="black",
-                    linewidth=1
+                draw_single_diagonal(
+                    ax,
+                    start, y_op,
+                    start + temps, y_positions[sys]
                 )
 
             max_x = max(max_x, end)
 
-        # ================= WAIT =================
+        # ================= TZ =================
         elif tz:
 
             start = time_cursor["OP"]
@@ -278,12 +275,9 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # LABEL
-        if temps >= 0.5:
+        if start is not None and temps >= 0.5:
             ax.text(start + temps/2, y_op - 0.18, op,
                     ha="center", fontsize=9)
-
-    # ================= LINES =================
 
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
@@ -297,5 +291,4 @@ if st.button("Générer le simogramme"):
     ax.grid(axis="x", alpha=0.2)
 
     plt.tight_layout()
-
     st.pyplot(fig)
