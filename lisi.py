@@ -89,8 +89,33 @@ with st.sidebar:
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
 
-    if st.button("➕ Ajouter machine"):
-        st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
+    # ================= ADD / REMOVE MACHINES =================
+
+    col_add, col_remove = st.columns(2)
+
+    with col_add:
+        if st.button("➕ Ajouter machine"):
+            st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
+            st.rerun()
+
+    with col_remove:
+        if len(st.session_state["machines"]) > 0:
+
+            machine_to_remove = st.selectbox(
+                "Supprimer machine",
+                st.session_state["machines"]
+            )
+
+            if st.button("❌ Supprimer"):
+                st.session_state["machines"].remove(machine_to_remove)
+
+                # 🔥 CLEAN TABLE STATE (supprime lignes/éditeur)
+                if machine_to_remove in st.session_state:
+                    del st.session_state[machine_to_remove]
+
+                st.rerun()
+
+    # ================= OFFSETS =================
 
     offset = {}
     for m in st.session_state["machines"]:
@@ -151,7 +176,6 @@ if st.button("Générer le simogramme"):
 
     max_x = 0
 
-    # KPI
     total_machine_time = 0
     total_operator_time = 0
     total_wait_time = 0
@@ -163,7 +187,6 @@ if st.button("Générer le simogramme"):
         "TZ": "#9ca3af"
     }
 
-    # ================= HATCH SAFE =================
     def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
         i = 0
         while i < w + h:
@@ -176,8 +199,6 @@ if st.button("Générer le simogramme"):
             )
             line.set_clip_path(rect)
             i += spacing
-
-    # ================= DRAW =================
 
     for _, row in edited_df.iterrows():
 
@@ -193,7 +214,6 @@ if st.button("Générer le simogramme"):
 
         start = None
 
-        # ================= MACHINE =================
         if tt:
 
             start = time_cursor[sys]
@@ -206,8 +226,7 @@ if st.button("Générer le simogramme"):
                 temps,
                 h,
                 facecolor=COLORS["TT"],
-                edgecolor="black",
-                linewidth=1
+                edgecolor="black"
             )
             ax.add_patch(rect)
 
@@ -216,7 +235,6 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ================= OPERATOR =================
         elif tm:
 
             start = time_cursor["OP"]
@@ -229,8 +247,7 @@ if st.button("Générer le simogramme"):
                 temps,
                 h,
                 facecolor=COLORS["TM"],
-                edgecolor="black",
-                linewidth=1
+                edgecolor="black"
             )
             ax.add_patch(rect)
 
@@ -239,7 +256,6 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ================= TRANSFERT =================
         elif ttm:
 
             start = max(time_cursor["OP"], time_cursor[sys])
@@ -255,22 +271,18 @@ if st.button("Générer le simogramme"):
                 temps,
                 y_positions[sys] - y_op,
                 facecolor="white",
-                edgecolor="black",
-                linewidth=1
+                edgecolor="black"
             )
             ax.add_patch(rect)
 
-            # ✔ ALWAYS diagonal (no TF)
             ax.plot(
                 [start, start + temps],
                 [y_op, y_positions[sys]],
-                color="black",
-                linewidth=1
+                color="black"
             )
 
             max_x = max(max_x, end)
 
-        # ================= WAIT =================
         elif tz:
 
             start = time_cursor["OP"]
@@ -284,7 +296,6 @@ if st.button("Générer le simogramme"):
                 h,
                 facecolor=COLORS["TZ"],
                 edgecolor="black",
-                linewidth=1,
                 alpha=0.6
             ))
 
@@ -293,8 +304,6 @@ if st.button("Générer le simogramme"):
         if temps >= 0.5:
             ax.text(start + temps/2, y_op - 0.18, op,
                     ha="center", fontsize=9)
-
-    # ================= LINES =================
 
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
@@ -309,10 +318,6 @@ if st.button("Générer le simogramme"):
 
     plt.tight_layout()
 
-    # ===================================================
-    # KPI
-    # ===================================================
-
     st.markdown("## KPI")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -325,10 +330,6 @@ if st.button("Générer le simogramme"):
     st.success("Simogramme généré avec succès")
 
     st.pyplot(fig)
-
-    # ===================================================
-    # EXPORT
-    # ===================================================
 
     image_path = "simogramme.png"
     fig.savefig(image_path, bbox_inches="tight", dpi=300)
