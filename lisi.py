@@ -89,33 +89,9 @@ with st.sidebar:
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
 
-    # ================= ADD / REMOVE MACHINES =================
-
-    col_add, col_remove = st.columns(2)
-
-    with col_add:
-        if st.button("➕ Ajouter machine"):
-            st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
-            st.rerun()
-
-    with col_remove:
-        if len(st.session_state["machines"]) > 0:
-
-            machine_to_remove = st.selectbox(
-                "Supprimer machine",
-                st.session_state["machines"]
-            )
-
-            if st.button("❌ Supprimer"):
-                st.session_state["machines"].remove(machine_to_remove)
-
-                # 🔥 CLEAN TABLE STATE (supprime lignes/éditeur)
-                if machine_to_remove in st.session_state:
-                    del st.session_state[machine_to_remove]
-
-                st.rerun()
-
-    # ================= OFFSETS =================
+    if st.button("➕ Ajouter machine"):
+        st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
+        st.rerun()
 
     offset = {}
     for m in st.session_state["machines"]:
@@ -131,7 +107,22 @@ dfs = []
 
 for m in st.session_state["machines"]:
 
-    st.subheader(f"Tableau {m}")
+    # ================= HEADER + DELETE BUTTON =================
+    col_title, col_delete = st.columns([5, 1])
+
+    with col_title:
+        st.subheader(f"Tableau {m}")
+
+    with col_delete:
+        if st.button("❌", key=f"del_{m}"):
+            st.session_state["machines"].remove(m)
+
+            if m in st.session_state:
+                del st.session_state[m]
+
+            st.rerun()
+
+    # ================= DATA EDITOR =================
 
     df = st.data_editor(
         pd.DataFrame({
@@ -221,13 +212,8 @@ if st.button("Générer le simogramme"):
             time_cursor[sys] = end
             total_machine_time += temps
 
-            rect = Rectangle(
-                (start, y_positions[sys]),
-                temps,
-                h,
-                facecolor=COLORS["TT"],
-                edgecolor="black"
-            )
+            rect = Rectangle((start, y_positions[sys]), temps, h,
+                             facecolor=COLORS["TT"], edgecolor="black")
             ax.add_patch(rect)
 
             if tf:
@@ -242,13 +228,8 @@ if st.button("Générer le simogramme"):
             time_cursor["OP"] = end
             total_operator_time += temps
 
-            rect = Rectangle(
-                (start, y_op),
-                temps,
-                h,
-                facecolor=COLORS["TM"],
-                edgecolor="black"
-            )
+            rect = Rectangle((start, y_op), temps, h,
+                             facecolor=COLORS["TM"], edgecolor="black")
             ax.add_patch(rect)
 
             if tf:
@@ -266,20 +247,16 @@ if st.button("Générer le simogramme"):
             total_operator_time += temps
             total_machine_time += temps
 
-            rect = Rectangle(
-                (start, y_op),
-                temps,
-                y_positions[sys] - y_op,
-                facecolor="white",
-                edgecolor="black"
-            )
+            rect = Rectangle((start, y_op),
+                             temps,
+                             y_positions[sys] - y_op,
+                             facecolor="white",
+                             edgecolor="black")
             ax.add_patch(rect)
 
-            ax.plot(
-                [start, start + temps],
-                [y_op, y_positions[sys]],
-                color="black"
-            )
+            ax.plot([start, start + temps],
+                    [y_op, y_positions[sys]],
+                    color="black")
 
             max_x = max(max_x, end)
 
@@ -290,14 +267,10 @@ if st.button("Générer le simogramme"):
             time_cursor["OP"] = end
             total_wait_time += temps
 
-            ax.add_patch(Rectangle(
-                (start, y_op),
-                temps,
-                h,
-                facecolor=COLORS["TZ"],
-                edgecolor="black",
-                alpha=0.6
-            ))
+            ax.add_patch(Rectangle((start, y_op), temps, h,
+                                   facecolor=COLORS["TZ"],
+                                   edgecolor="black",
+                                   alpha=0.6))
 
             max_x = max(max_x, end)
 
