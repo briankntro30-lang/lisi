@@ -300,3 +300,63 @@ if st.button("Générer le simogramme"):
 
     plt.tight_layout()
     st.pyplot(fig)
+
+    
+    # ===================================================
+    # KPI (UNCHANGED)
+    # ===================================================
+
+    st.markdown("## KPI")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Temps cycle", f"{round(max_x, 2)} s")
+    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
+    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
+    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
+
+    st.success("Simogramme généré avec succès")
+
+    st.pyplot(fig)
+
+    # ===================================================
+    # EXPORT
+    # ===================================================
+
+    image_path = "simogramme.png"
+    fig.savefig(image_path, bbox_inches="tight", dpi=300)
+
+    excel_path = "simogramme.xlsx"
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+
+        edited_df.to_excel(writer, sheet_name="Données", index=False)
+
+        workbook = writer.book
+        worksheet = workbook.create_sheet("Simogramme")
+
+        img = Image(image_path)
+        worksheet.add_image(img, "A1")
+
+        worksheet["A25"] = "Date"
+        worksheet["B25"] = str(datetime.now())
+
+        worksheet["A26"] = "Temps cycle"
+        worksheet["B26"] = round(max_x, 2)
+
+        worksheet["A27"] = "Temps machine"
+        worksheet["B27"] = round(total_machine_time, 2)
+
+        worksheet["A28"] = "Temps opérateur"
+        worksheet["B28"] = round(total_operator_time, 2)
+
+        worksheet["A29"] = "Temps attente"
+        worksheet["B29"] = round(total_wait_time, 2)
+
+    with open(excel_path, "rb") as f:
+        st.download_button(
+            "📥 Télécharger Excel",
+            f,
+            file_name="simogramme.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
