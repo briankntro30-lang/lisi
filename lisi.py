@@ -115,7 +115,7 @@ for m in st.session_state["machines"]:
             "TT": [False],
             "TM": [False],
             "TTM": [False],
-            "TZ": [False],
+            "TR": [False],
             "TF": [False],
         }),
         num_rows="dynamic",
