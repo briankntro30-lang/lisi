@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from openpyxl.drawing.image import Image
 from datetime import datetime
 
 # ===================================================
@@ -40,7 +39,6 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-# LOGO
 st.image(
     "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0",
     width=250
@@ -51,7 +49,6 @@ st.image(
 # ===================================================
 
 def login():
-
     st.markdown("## Connexion - Simogramme")
 
     col1, col2, col3 = st.columns([1,2,1])
@@ -129,18 +126,24 @@ edited_df = pd.concat(dfs, ignore_index=True)
 # HELPERS
 # ===================================================
 
-def draw_parallel_diagonals(ax, x, y, w, h, n=3):
-    for i in range(n):
-        offset = i * (h / (n + 1))
-        ax.plot(
-            [x, x + w],
-            [y + offset, y + h + offset],
-            color="black",
-            linewidth=1
-        )
+def draw_parallel_diagonals(ax, x, y, w, h, n=4):
+    """
+    Rayado a 45° dentro del rectángulo (sin salirse)
+    """
+    spacing = h / (n + 1)
 
-def draw_single_diagonal(ax, x1, y1, x2, y2):
-    ax.plot([x1, x2], [y1, y2], color="black", linewidth=1)
+    for i in range(n):
+        y0 = y + i * spacing
+        x0 = x
+
+        x1 = x + min(w, h)
+        y1 = y0 + (x1 - x0)
+
+        if y1 > y + h:
+            y1 = y + h
+            x1 = x0 + (y1 - y0)
+
+        ax.plot([x0, x1], [y0, y1], color="black", linewidth=1)
 
 # ===================================================
 # SIMOGRAMME
@@ -246,12 +249,13 @@ if st.button("Générer le simogramme"):
                 alpha=0.6
             ))
 
-            # ✔ SOLO UNA DIAGONAL (TTM)
+            # ✔ SOLO UNA DIAGONAL
             if tf:
-                draw_single_diagonal(
-                    ax,
-                    start, y_op,
-                    start + temps, y_positions[sys]
+                ax.plot(
+                    [start, start + temps],
+                    [y_op, y_positions[sys]],
+                    color="black",
+                    linewidth=1
                 )
 
             max_x = max(max_x, end)
