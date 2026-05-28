@@ -106,7 +106,13 @@ with st.sidebar:
         value=0.85,
         step=0.05
     )
-
+heures_travail = st.number_input(
+    "Heures de travail / jour",
+    min_value=1.0,
+    max_value=24.0,
+    value=7.0,
+    step=0.5
+)
     st.markdown("---")
 
     if "machines" not in st.session_state:
@@ -468,8 +474,8 @@ if st.button("Générer le simogramme"):
     # ===================================================
 
     temps_cycle = max_x
-
-    temps_disponible = 7 * 3600
+    
+    temps_disponible = heures_travail * 3600
 
     pieces_jour = (
         (temps_disponible / temps_cycle)
