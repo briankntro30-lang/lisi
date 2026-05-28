@@ -98,8 +98,8 @@ with st.sidebar:
     reference_piece = st.text_input("Référence pièce")
     numéro de la machine = st.text_input("Numéro de la machine")
     pdc = st.text_input("PDC")
-    vitesse_de_coupe = st.text_input("Vitesse de coupe")
-    vitesse_de_avance = st.text_input("Vitesse d'avance")
+    vitesse_coupe = st.text_input("Vitesse de coupe")
+    vitesse_avance = st.text_input("Vitesse d'avance")
 
     coef_repo = st.number_input(
         "Coefficient rendement",
