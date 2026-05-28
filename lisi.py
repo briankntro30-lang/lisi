@@ -585,14 +585,20 @@ if st.button("Générer le simogramme"):
         worksheet["A1"] = "Référence pièce"
         worksheet["B1"] = reference_piece
 
-        worksheet["A2"] = "EOF"
-        worksheet["B2"] = eof
+        worksheet["A2"] = "Numéro de la machine"
+        worksheet["B2"] = numero_machine
 
         worksheet["A3"] = "PDC"
         worksheet["B3"] = pdc
 
         worksheet["A4"] = "Coefficient rendement"
         worksheet["B4"] = coef_repo
+
+        worksheet["A5"] = "Vitesse de coupe"
+        worksheet["B5"] = vitesse_coupe
+
+        worksheet["A6"] = "Vitesse d'avance"
+        worksheet["B6"] = vitesse_avance
 
         worksheet["A5"] = "Date"
         worksheet["B5"] = str(datetime.now())
@@ -628,7 +634,7 @@ if st.button("Générer le simogramme"):
 
         img = Image(image_path)
 
-        worksheet.add_image(img, "A15")
+        worksheet.add_image(img, "A4")
 
     # ===================================================
     # DOWNLOAD
