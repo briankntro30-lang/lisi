@@ -160,77 +160,53 @@ for m in st.session_state["machines"]:
         else:
             st.write("")
 
- # ===================================================
-# DATAFRAME
-# ===================================================
+    # ===================================================
+    # DATAFRAME
+    # ===================================================
 
-default_df = pd.DataFrame({
-    "Etape": [""],
-    "Début": [0.0],
-    "Durée": [0.0],
-    "TT": [False],
-    "TM": [False],
-    "TTM": [False],
-    "TR": [False],
-    "TF": [False],
-})
+    default_df = pd.DataFrame({
+        "Etape": [""],
+        "Début": [0.0],
+        "Durée": [0.0],
+        "TT": [False],
+        "TM": [False],
+        "TTM": [False],
+        "TR": [False],
+        "TF": [False],
+    })
 
-# ===================================================
-# SAFE SESSION STATE
-# ===================================================
+    df = st.data_editor(
+        default_df,
+        num_rows="dynamic",
+        key=m,
+        use_container_width=True
+    )
 
-if m not in st.session_state:
-    st.session_state[m] = default_df.copy()
+    # ===================================================
+    # AUTO CALCUL DÉBUT
+    # ===================================================
 
-if not isinstance(st.session_state[m], pd.DataFrame):
-    st.session_state[m] = default_df.copy()
+    for i in range(1, len(df)):
 
-# ===================================================
-# EDITOR
-# ===================================================
-
-df = st.data_editor(
-    st.session_state[m],
-    num_rows="dynamic",
-    key=f"editor_{m}_table",
-    use_container_width=True
-)
-
-df = df.copy()
-
-# ===================================================
-# AUTO-DEBUT (SAFE + USER OVERRIDE)
-# ===================================================
-
-for i in range(1, len(df)):
-
-    try:
         prev_debut = float(df.loc[i-1, "Début"])
         prev_duree = float(df.loc[i-1, "Durée"])
-    except:
-        prev_debut = 0
-        prev_duree = 0
 
-    auto_debut = prev_debut + prev_duree
-    current = df.loc[i, "Début"]
+        auto_debut = prev_debut + prev_duree
 
-    if (
-        pd.isna(current)
-        or current == 0
-        or current == ""
-    ):
-        df.loc[i, "Début"] = auto_debut
+        if (
+            df.loc[i, "Début"] == 0
+            or pd.isna(df.loc[i, "Début"])
+        ):
+            df.loc[i, "Début"] = auto_debut
 
-# ===================================================
-# FIN + SYNC SESSION STATE (IMPORTANT POUR EXCEL)
-# ===================================================
+    df["Fin"] = df["Début"] + df["Durée"]
 
-df["Fin"] = df["Début"] + df["Durée"]
-df["Sys"] = m
+    df["Sys"] = m
 
-st.session_state[m] = df.copy()
+    dfs.append(df)
 
-dfs.append(df)
+edited_df = pd.concat(dfs, ignore_index=True)
+
 # ===================================================
 # GENERATE SIMOGRAMME
 # ===================================================
