@@ -121,12 +121,9 @@ with st.sidebar:
         st.session_state["machines"] = ["M1"]
 
     if st.button("➕ Ajouter machine"):
-
-        st.session_state["machines"].append(
-            f"M{len(st.session_state['machines'])+1}"
-        )
-
+        st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
         st.rerun()
+
 # ===================================================
 # TABLES
 # ===================================================
@@ -134,10 +131,6 @@ with st.sidebar:
 dfs = []
 
 for m in st.session_state["machines"]:
-
-    # ===================================================
-    # HEADER
-    # ===================================================
 
     col_title, col_delete = st.columns([6, 1])
 
@@ -147,9 +140,7 @@ for m in st.session_state["machines"]:
     with col_delete:
 
         if m != "M1":
-
             if st.button("🗑️", key=f"del_{m}"):
-
                 st.session_state["machines"].remove(m)
 
                 if m in st.session_state:
@@ -157,11 +148,8 @@ for m in st.session_state["machines"]:
 
                 st.rerun()
 
-        else:
-            st.write("")
-
     # ===================================================
-    # DATAFRAME
+    # DATA INITIAL
     # ===================================================
 
     default_df = pd.DataFrame({
@@ -175,32 +163,35 @@ for m in st.session_state["machines"]:
         "TF": [False],
     })
 
+    # ===================================================
+    # 🔥 FIX IMPORTANT SESSION STATE
+    # ===================================================
+
+    if m not in st.session_state:
+        st.session_state[m] = default_df
+
     df = st.data_editor(
-        default_df,
+        st.session_state[m],
         num_rows="dynamic",
-        key=m,
+        key=f"editor_{m}",
         use_container_width=True
     )
 
+    # sauvegarde
+    st.session_state[m] = df.copy()
+
     # ===================================================
-    # AUTO CALCUL DÉBUT
+    # AUTO CALCUL DÉBUT (CORRIGÉ)
     # ===================================================
 
     for i in range(1, len(df)):
 
-        prev_debut = float(df.loc[i-1, "Début"])
-        prev_duree = float(df.loc[i-1, "Durée"])
+        prev_end = float(df.loc[i-1, "Début"]) + float(df.loc[i-1, "Durée"])
 
-        auto_debut = prev_debut + prev_duree
-
-        if (
-            df.loc[i, "Début"] == 0
-            or pd.isna(df.loc[i, "Début"])
-        ):
-            df.loc[i, "Début"] = auto_debut
+        if pd.isna(df.loc[i, "Début"]) or df.loc[i, "Début"] == 0:
+            df.loc[i, "Début"] = prev_end
 
     df["Fin"] = df["Début"] + df["Durée"]
-
     df["Sys"] = m
 
     dfs.append(df)
@@ -218,17 +209,12 @@ if st.button("Générer le simogramme"):
     machines = st.session_state["machines"]
 
     y_positions = {}
-
     step = 0.6
     h = 0.22
     y_op = 0
 
     for i, m in enumerate(machines):
-
-        y_positions[m] = (
-            step * ((i // 2) + 1)
-            * (1 if i % 2 == 0 else -1)
-        )
+        y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
 
     max_x = 0
 
@@ -243,14 +229,9 @@ if st.button("Générer le simogramme"):
         "TZ": "#9ca3af"
     }
 
-    # ===================================================
-    # HATCH
-    # ===================================================
-
     def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
 
         i = 0
-
         while i < w + h:
 
             line, = ax.plot(
@@ -262,22 +243,14 @@ if st.button("Générer le simogramme"):
             )
 
             line.set_clip_path(rect)
-
             i += spacing
-
-    # ===================================================
-    # DRAW
-    # ===================================================
 
     for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
-
         start = float(row["Début"])
         temps = float(row["Durée"])
-
         end = start + temps
-
         sys = str(row["Sys"])
 
         tt = bool(row["TT"])
@@ -285,10 +258,6 @@ if st.button("Générer le simogramme"):
         ttm = bool(row["TTM"])
         tz = bool(row["TR"])
         tf = bool(row["TF"])
-
-        # ===================================================
-        # TT
-        # ===================================================
 
         if tt:
 
@@ -305,20 +274,9 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_positions[sys],
-                    temps,
-                    h
-                )
+                draw_hatch(ax, rect, start, y_positions[sys], temps, h)
 
             max_x = max(max_x, end)
-
-        # ===================================================
-        # TM
-        # ===================================================
 
         elif tm:
 
@@ -335,20 +293,9 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_op,
-                    temps,
-                    h
-                )
+                draw_hatch(ax, rect, start, y_op, temps, h)
 
             max_x = max(max_x, end)
-
-        # ===================================================
-        # TTM
-        # ===================================================
 
         elif ttm:
 
@@ -372,20 +319,9 @@ if st.button("Générer le simogramme"):
             )
 
             if tf:
-                draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_op,
-                    temps,
-                    abs(y_positions[sys] - y_op)
-                )
+                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions[sys] - y_op))
 
             max_x = max(max_x, end)
-
-        # ===================================================
-        # TR
-        # ===================================================
 
         elif tz:
 
@@ -404,239 +340,24 @@ if st.button("Générer le simogramme"):
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TEXT
-        # ===================================================
-
         if temps >= 0.5:
-
-            ax.text(
-                start + temps/2,
-                y_op - 0.18,
-                op,
-                ha="center",
-                fontsize=9
-            )
-
-    # ===================================================
-    # LINES
-    # ===================================================
+            ax.text(start + temps/2, y_op - 0.18, op, ha="center", fontsize=9)
 
     for m, y in y_positions.items():
 
-        ax.hlines(
-            y,
-            0,
-            max_x,
-            color="black",
-            linewidth=1.5
-        )
+        ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
 
-        ax.text(
-            -1.5,
-            y,
-            m,
-            ha="right",
-            fontsize=14,
-            fontweight="bold"
-        )
+        ax.text(-1.5, y, m, ha="right", fontsize=14, fontweight="bold")
 
-    ax.hlines(
-        y_op,
-        0,
-        max_x,
-        color="black",
-        linewidth=2
-    )
-
-    ax.text(
-        -1.5,
-        y_op,
-        "Opérateur",
-        ha="right",
-        fontsize=16,
-        fontweight="bold"
-    )
-
-    # ===================================================
-    # GRAPH SETTINGS
-    # ===================================================
+    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
+    ax.text(-1.5, y_op, "Opérateur", ha="right", fontsize=16, fontweight="bold")
 
     ax.set_xlim(0, max_x + 2)
-
     ax.set_yticks([])
-
     ax.grid(axis="x", alpha=0.2)
 
     plt.tight_layout()
 
-    # ===================================================
-    # KPI
-    # ===================================================
-
-    temps_cycle = max_x
-    
-    temps_disponible = heures_travail * 3600
-
-    pieces_jour = (
-        (temps_disponible / temps_cycle)
-        * coef_repo
-        if temps_cycle > 0 else 0
-    )
-
-    taux_homme = (
-        total_operator_time / temps_cycle
-        if temps_cycle > 0 else 0
-    )
-
-    taux_machine = (
-        total_machine_time / temps_cycle
-        if temps_cycle > 0 else 0
-    )
-
-    st.markdown("## KPI")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric(
-        "Temps cycle",
-        f"{round(temps_cycle, 2)} s"
-    )
-
-    col2.metric(
-        "Temps machine",
-        f"{round(total_machine_time, 2)} s"
-    )
-
-    col3.metric(
-        "Temps opérateur",
-        f"{round(total_operator_time, 2)} s"
-    )
-
-    col4.metric(
-        "Attente",
-        f"{round(total_wait_time, 2)} s"
-    )
-
-    col5, col6, col7 = st.columns(3)
-
-    col5.metric(
-        "Taux Homme",
-        f"{round(taux_homme * 100, 1)} %"
-    )
-
-    col6.metric(
-        "Taux Machine",
-        f"{round(taux_machine * 100, 1)} %"
-    )
-
-    col7.metric(
-        "Pièces / Jour",
-        f"{round(pieces_jour, 1)}"
-    )
-
-    st.success("Simogramme généré avec succès")
-
     st.pyplot(fig)
 
-    # ===================================================
-    # SAVE IMAGE
-    # ===================================================
-
-    image_path = "simogramme.png"
-
-    fig.savefig(
-        image_path,
-        bbox_inches="tight",
-        dpi=300
-    )
-
-    # ===================================================
-    # EXCEL EXPORT
-    # ===================================================
-
-    excel_path = "simogramme.xlsx"
-
-    with pd.ExcelWriter(
-        excel_path,
-        engine="openpyxl"
-    ) as writer:
-
-        # ===================================================
-        # DATA SHEET
-        # ===================================================
-
-        edited_df.to_excel(
-            writer,
-            sheet_name="Données",
-            index=False
-        )
-
-        workbook = writer.book
-
-        worksheet = workbook.create_sheet("Simogramme")
-
-        # ===================================================
-        # HEADER INFOS
-        # ===================================================
-
-        worksheet["A1"] = "Référence pièce"
-        worksheet["B1"] = reference_piece
-
-        worksheet["A2"] = "EOF"
-        worksheet["B2"] = eof
-
-        worksheet["A3"] = "PDC"
-        worksheet["B3"] = pdc
-
-        worksheet["A4"] = "Coefficient rendement"
-        worksheet["B4"] = coef_repo
-
-        worksheet["A5"] = "Date"
-        worksheet["B5"] = str(datetime.now())
-
-        # ===================================================
-        # KPI
-        # ===================================================
-
-        worksheet["A7"] = "Temps cycle"
-        worksheet["B7"] = round(temps_cycle, 2)
-
-        worksheet["A8"] = "Temps machine"
-        worksheet["B8"] = round(total_machine_time, 2)
-
-        worksheet["A9"] = "Temps opérateur"
-        worksheet["B9"] = round(total_operator_time, 2)
-
-        worksheet["A10"] = "Temps attente"
-        worksheet["B10"] = round(total_wait_time, 2)
-
-        worksheet["A11"] = "Taux Homme"
-        worksheet["B11"] = round(taux_homme * 100, 2)
-
-        worksheet["A12"] = "Taux Machine"
-        worksheet["B12"] = round(taux_machine * 100, 2)
-
-        worksheet["A13"] = "Pièces / Jour"
-        worksheet["B13"] = round(pieces_jour, 1)
-
-        # ===================================================
-        # IMAGE
-        # ===================================================
-
-        img = Image(image_path)
-
-        worksheet.add_image(img, "A15")
-
-    # ===================================================
-    # DOWNLOAD
-    # ===================================================
-
-    with open(excel_path, "rb") as f:
-
-        st.download_button(
-            "📥 Télécharger Excel",
-            f,
-            file_name="simogramme.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    st.success("Simogramme généré avec succès")
