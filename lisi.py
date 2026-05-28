@@ -96,7 +96,7 @@ with st.sidebar:
     st.markdown("## Informations production")
 
     reference_piece = st.text_input("Référence pièce")
-    numéro de la machine = st.text_input("Numéro de la machine")
+    numéro_machine = st.text_input("Numéro de la machine")
     pdc = st.text_input("PDC")
     vitesse_coupe = st.text_input("Vitesse de coupe")
     vitesse_avance = st.text_input("Vitesse d'avance")
