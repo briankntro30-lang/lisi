@@ -98,14 +98,15 @@ with st.sidebar:
     reference_piece = st.text_input("Référence pièce")
     eof = st.text_input("EOF")
     pdc = st.text_input("PDC")
+    
+coef_repo = st.number_input(
+    "Coefficient rendement",
+    min_value=0.1,
+    max_value=1.0,
+    value=0.85,
+    step=0.05
+)
 
-    coef_repo = st.number_input(
-        "Coefficient rendement",
-        min_value=0.1,
-        max_value=1.0,
-        value=0.85,
-        step=0.05
-    )
 heures_travail = st.number_input(
     "Heures de travail / jour",
     min_value=1.0,
@@ -113,7 +114,9 @@ heures_travail = st.number_input(
     value=7.0,
     step=0.5
 )
-    st.markdown("---")
+
+st.markdown("---")
+
 
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
