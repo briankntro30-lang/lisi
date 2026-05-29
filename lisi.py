@@ -634,7 +634,7 @@ if st.button("Générer le simogramme"):
 
         img = Image(image_path)
 
-        worksheet.add_image(img, width=100)
+        worksheet.add_image(img)
 
     # ===================================================
     # DOWNLOAD
