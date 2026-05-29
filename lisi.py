@@ -361,7 +361,7 @@ if st.button("Générer le simogramme"):
                 (start, y_op),
                 temps,
                 y_positions[sys] - y_op,
-                facecolor="white",
+                facecolor="transparent",
                 edgecolor="black"
             )
 
