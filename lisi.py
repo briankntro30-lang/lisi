@@ -586,7 +586,7 @@ if st.button("Générer le simogramme"):
         worksheet["B1"] = reference_piece
 
         worksheet["A2"] = "Numéro de la machine"
-        worksheet["B2"] = numero_machine
+        worksheet["B2"] = numéro_machine
 
         worksheet["A3"] = "PDC"
         worksheet["B3"] = pdc
