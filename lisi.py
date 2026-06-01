@@ -101,13 +101,13 @@ with st.sidebar:
     vitesse_coupe = st.text_input("Vitesse de coupe")
     vitesse_avance = st.text_input("Vitesse d'avance")
 
-coef_repo = st.number_input(
-    "Coefficient rendement opérateur",
-    min_value=0.10,
-    max_value=5.00,
-    value=1.00,
-    step=0.05
-)
+    coef_repo = st.number_input(
+        "Coefficient rendement opérateur",
+        min_value=0.10,
+        max_value=5.00,
+        value=1.00,
+        step=0.05
+    )
 
     heures_travail = st.number_input(
         "Heures de travail / jour",
@@ -116,21 +116,23 @@ coef_repo = st.number_input(
         value=7.0,
         step=0.5
     )
-st.markdown("## Contrôle qualité")
 
-temps_controle = st.number_input(
-    "Temps contrôle (s)",
-    min_value=0.0,
-    value=0.0,
-    step=1.0
-)
+    st.markdown("## Contrôle qualité")
 
-frequence_controle = st.number_input(
-    "Fréquence contrôle (pièces)",
-    min_value=1,
-    value=10,
-    step=1
-)
+    temps_controle = st.number_input(
+        "Temps contrôle (s)",
+        min_value=0.0,
+        value=0.0,
+        step=1.0
+    )
+
+    frequence_controle = st.number_input(
+        "Fréquence contrôle (pièces)",
+        min_value=1,
+        value=10,
+        step=1
+    )
+
     st.markdown("---")
 
     if "machines" not in st.session_state:
