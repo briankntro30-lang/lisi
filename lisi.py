@@ -83,10 +83,6 @@ if not st.session_state["logged_in"]:
     login()
     st.stop()
 
-# ===================================================
-# SIDEBAR
-# ===================================================
-
 with st.sidebar:
 
     st.image(LOGO_URL, width=220)
@@ -117,41 +113,66 @@ with st.sidebar:
         step=0.5
     )
 
+    st.markdown("---")
+
+    # ===================================================
+    # TEMPS DE RÉFÉRENCE MACHINE
+    # ===================================================
+
+    temps_reference_machine = st.number_input(
+        "Temps de référence machine (s)",
+        min_value=0.0,
+        value=0.0,
+        step=1.0
+    )
+
+    st.markdown("---")
+
+    # ===================================================
+    # CONTRÔLE QUALITÉ (MULTIPLE)
+    # ===================================================
+
     st.markdown("## Contrôle qualité")
 
-if "qc_controls" not in st.session_state:
-    st.session_state["qc_controls"] = [
-        {"nom": "QC1", "temps": 0.0, "frequence": 10}
-    ]
+    if "qc_controls" not in st.session_state:
+        st.session_state["qc_controls"] = [
+            {"nom": "QC1", "temps": 0.0, "frequence": 10}
+        ]
 
-if st.button("➕ Ajouter contrôle qualité"):
-    st.session_state["qc_controls"].append(
-        {
-            "nom": f"QC{len(st.session_state['qc_controls'])+1}",
-            "temps": 0.0,
-            "frequence": 10
-        }
-    )
-    st.rerun()
+    if st.button("➕ Ajouter contrôle qualité"):
 
-for i, qc in enumerate(st.session_state["qc_controls"]):
+        st.session_state["qc_controls"].append(
+            {
+                "nom": f"QC{len(st.session_state['qc_controls'])+1}",
+                "temps": 0.0,
+                "frequence": 10
+            }
+        )
+        st.rerun()
 
-    st.markdown(f"### {qc['nom']}")
+    for i, qc in enumerate(st.session_state["qc_controls"]):
 
-    qc["temps"] = st.number_input(
-        f"Temps contrôle (s) - {qc['nom']}",
-        min_value=0.0,
-        key=f"qc_temps_{i}",
-        value=qc["temps"]
-    )
+        st.markdown(f"### {qc['nom']}")
 
-    qc["frequence"] = st.number_input(
-        f"Fréquence (pièces) - {qc['nom']}",
-        min_value=1,
-        key=f"qc_freq_{i}",
-        value=qc["frequence"]
-    )
+        qc["temps"] = st.number_input(
+            f"Temps contrôle (s)",
+            min_value=0.0,
+            key=f"qc_temps_{i}",
+            value=qc["temps"]
+        )
+
+        qc["frequence"] = st.number_input(
+            f"Fréquence (pièces)",
+            min_value=1,
+            key=f"qc_freq_{i}",
+            value=qc["frequence"]
+        )
+
     st.markdown("---")
+
+    # ===================================================
+    # MACHINE MANAGEMENT
+    # ===================================================
 
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
@@ -440,12 +461,15 @@ if st.button("Générer le simogramme"):
 
     temps_libre_machine = max(0, max_x - total_operator_time)
 
-    impact_controle = 0
-    if temps_controle > 0:
-        if temps_controle > temps_libre_machine:
-            impact_controle = (
-                temps_controle - temps_libre_machine
-            ) / frequence_controle
+   impact_controle = 0
+
+for qc in st.session_state["qc_controls"]:
+
+    temps_qc = qc["temps"]
+    freq_qc = qc["frequence"]
+
+    if temps_qc > 0:
+        impact_controle += temps_qc / freq_qc
 
     temps_cycle = max_x + surcout_operateur + impact_controle
 
