@@ -119,20 +119,38 @@ with st.sidebar:
 
     st.markdown("## Contrôle qualité")
 
-    temps_controle = st.number_input(
-        "Temps contrôle (s)",
+if "qc_controls" not in st.session_state:
+    st.session_state["qc_controls"] = [
+        {"nom": "QC1", "temps": 0.0, "frequence": 10}
+    ]
+
+if st.button("➕ Ajouter contrôle qualité"):
+    st.session_state["qc_controls"].append(
+        {
+            "nom": f"QC{len(st.session_state['qc_controls'])+1}",
+            "temps": 0.0,
+            "frequence": 10
+        }
+    )
+    st.rerun()
+
+for i, qc in enumerate(st.session_state["qc_controls"]):
+
+    st.markdown(f"### {qc['nom']}")
+
+    qc["temps"] = st.number_input(
+        f"Temps contrôle (s) - {qc['nom']}",
         min_value=0.0,
-        value=0.0,
-        step=1.0
+        key=f"qc_temps_{i}",
+        value=qc["temps"]
     )
 
-    frequence_controle = st.number_input(
-        "Fréquence contrôle (pièces)",
+    qc["frequence"] = st.number_input(
+        f"Fréquence (pièces) - {qc['nom']}",
         min_value=1,
-        value=10,
-        step=1
+        key=f"qc_freq_{i}",
+        value=qc["frequence"]
     )
-
     st.markdown("---")
 
     if "machines" not in st.session_state:
