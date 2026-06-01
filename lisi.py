@@ -452,16 +452,20 @@ if st.button("Générer le simogramme"):
     ax.grid(axis="x", alpha=0.2)
     plt.tight_layout()
 
-    # ===================================================
-    # KPI CALC
-    # ===================================================
+  # ===================================================
+# KPI CALC
+# ===================================================
 
-    temps_operateur_corrige = total_operator_time * coef_repo
-    surcout_operateur = temps_operateur_corrige - total_operator_time
+temps_operateur_corrige = total_operator_time * coef_repo
+surcout_operateur = temps_operateur_corrige - total_operator_time
 
-    temps_libre_machine = max(0, max_x - total_operator_time)
+temps_libre_machine = max(0, max_x - total_operator_time)
 
-   impact_controle = 0
+# ===================================================
+# CONTROLE QUALITÉ (MULTIPLE)
+# ===================================================
+
+impact_controle = 0
 
 for qc in st.session_state["qc_controls"]:
 
@@ -471,43 +475,47 @@ for qc in st.session_state["qc_controls"]:
     if temps_qc > 0:
         impact_controle += temps_qc / freq_qc
 
-    temps_cycle = max_x + surcout_operateur + impact_controle
+# ===================================================
+# CYCLE TIME
+# ===================================================
 
-    pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
-    pieces_jour = pieces_heure * heures_travail
+temps_cycle = max_x + surcout_operateur + impact_controle
 
-    taux_homme = (
-        temps_operateur_corrige / temps_cycle
-        if temps_cycle > 0 else 0
-    )
+pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
+pieces_jour = pieces_heure * heures_travail
 
-    taux_machine = (
-        total_machine_time / temps_cycle
-        if temps_cycle > 0 else 0
-    )
+taux_homme = (
+    temps_operateur_corrige / temps_cycle
+    if temps_cycle > 0 else 0
+)
 
-    # ===================================================
-    # UI KPI
-    # ===================================================
+taux_machine = (
+    total_machine_time / temps_cycle
+    if temps_cycle > 0 else 0
+)
 
-    st.markdown("## KPI")
+# ===================================================
+# UI KPI
+# ===================================================
 
-    col1, col2, col3, col4 = st.columns(4)
+st.markdown("## KPI")
 
-    col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
-    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
-    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
+col1, col2, col3, col4 = st.columns(4)
 
-    col5, col6, col7, col8 = st.columns(4)
+col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
+col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
+col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
+col4.metric("Attente", f"{round(total_wait_time, 2)} s")
 
-    col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
-    col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
-    col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
-    col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
+col5, col6, col7, col8 = st.columns(4)
 
-    st.success("Simogramme généré avec succès")
-    st.pyplot(fig)
+col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
+col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
+col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
+col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
+
+st.success("Simogramme généré avec succès")
+st.pyplot(fig)
 
     # ===================================================
     # SAVE IMAGE
