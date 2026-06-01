@@ -517,12 +517,22 @@ col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
 st.success("Simogramme généré avec succès")
 st.pyplot(fig)
 
-    # ===================================================
-    # SAVE IMAGE
-    # ===================================================
+ # ===================================================
+# SAVE IMAGE
+# ===================================================
 
-    image_path = "simogramme.png"
-    fig.savefig(image_path, bbox_inches="tight", dpi=300)
+import os
+
+image_path = os.path.join(os.getcwd(), "simogramme.png")
+
+fig.tight_layout()
+
+fig.savefig(
+    image_path,
+    dpi=140,
+    bbox_inches="tight",
+    facecolor="white"
+)
 
     # ===================================================
     # EXCEL EXPORT
