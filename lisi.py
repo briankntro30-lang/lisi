@@ -2,7 +2,14 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from openpyxl.drawing.image import Image
+from openpyxl.drawing.image import Image as XLImage
+import os
+
+image_path = os.path.join(os.getcwd(), "simogramme.png")
+
+if os.path.exists(image_path):
+    img = XLImage(image_path)
+    worksheet.add_image(img, "D2")
 from datetime import datetime
 
 # ===================================================
