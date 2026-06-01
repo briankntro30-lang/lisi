@@ -452,7 +452,16 @@ if st.button("Générer le simogramme"):
     ax.grid(axis="x", alpha=0.2)
     plt.tight_layout()
 
-  # ===================================================
+ # ===================================================
+# SAFETY INIT (EVITA CRASHES)
+# ===================================================
+
+total_operator_time = total_operator_time if "total_operator_time" in locals() else 0
+total_machine_time = total_machine_time if "total_machine_time" in locals() else 0
+total_wait_time = total_wait_time if "total_wait_time" in locals() else 0
+max_x = max_x if "max_x" in locals() else 0
+
+# ===================================================
 # KPI CALC
 # ===================================================
 
@@ -462,15 +471,14 @@ surcout_operateur = temps_operateur_corrige - total_operator_time
 temps_libre_machine = max(0, max_x - total_operator_time)
 
 # ===================================================
-# CONTROLE QUALITÉ (MULTIPLE)
+# CONTROLE QUALITÉ
 # ===================================================
 
 impact_controle = 0
 
-for qc in st.session_state["qc_controls"]:
-
-    temps_qc = qc["temps"]
-    freq_qc = qc["frequence"]
+for qc in st.session_state.get("qc_controls", []):
+    temps_qc = qc.get("temps", 0)
+    freq_qc = qc.get("frequence", 1)
 
     if temps_qc > 0:
         impact_controle += temps_qc / freq_qc
@@ -484,15 +492,8 @@ temps_cycle = max_x + surcout_operateur + impact_controle
 pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
 pieces_jour = pieces_heure * heures_travail
 
-taux_homme = (
-    temps_operateur_corrige / temps_cycle
-    if temps_cycle > 0 else 0
-)
-
-taux_machine = (
-    total_machine_time / temps_cycle
-    if temps_cycle > 0 else 0
-)
+taux_homme = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
+taux_machine = total_machine_time / temps_cycle if temps_cycle > 0 else 0
 
 # ===================================================
 # UI KPI
@@ -516,24 +517,6 @@ col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
 
 st.success("Simogramme généré avec succès")
 st.pyplot(fig)
-
- # ===================================================
-# SAVE IMAGE
-# ===================================================
-
-import os
-
-image_path = os.path.join(os.getcwd(), "simogramme.png")
-
-fig.tight_layout()
-
-fig.savefig(
-    image_path,
-    dpi=140,
-    bbox_inches="tight",
-    facecolor="white"
-)
-
     # ===================================================
 # EXCEL EXPORT
 # ===================================================
