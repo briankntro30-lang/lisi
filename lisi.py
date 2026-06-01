@@ -120,10 +120,11 @@ with st.sidebar:
     # ===================================================
 
     temps_reference_machine = st.number_input(
-        "Temps de référence machine (s)",
+        "Temps de référence machine (s) - Ce que la machine pourrait produire pendant le contrôle",
         min_value=0.0,
         value=0.0,
-        step=1.0
+        step=1.0,
+        help="Si le contrôle dure 30s et la machine peut produire 20s, la perte réelle est de 10s"
     )
 
     st.markdown("---")
@@ -466,22 +467,36 @@ if st.button("Générer le simogramme"):
     max_x = max_x if "max_x" in locals() else 0
 
     # ===================================================
-    # CALCUL IMPACT CONTRÔLE QUALITÉ
+    # CALCUL IMPACT CONTRÔLE QUALITÉ (LOGIC CORREGIDA)
     # ===================================================
-
-    temps_controle_par_piece = 0
+    
+    # Tiempo perdido total por controles de calidad
+    # Por cada control: pérdida = max(0, temps_control - temps_reference_machine)
+    # Luego se divide por la frecuencia para obtener el impacto por pieza
+    
+    temps_perdu_par_piece = 0
     
     for qc in st.session_state.get("qc_controls", []):
         temps_qc = qc.get("temps", 0)
         freq_qc = qc.get("frequence", 1)
         
         if temps_qc > 0 and freq_qc > 0:
-            # Pour chaque pièce, le temps de contrôle est réparti sur la fréquence
-            # Exemple: contrôle de 30s toutes les 10 pièces = 3s par pièce
-            temps_controle_par_piece += temps_qc / freq_qc
-
-    # Ajouter l'impact du temps de référence machine
-    temps_controle_par_piece += temps_reference_machine / 3600 if temps_reference_machine > 0 else 0
+            # Pérdida real por este control (no puede ser negativa)
+            perte_reelle = max(0, temps_qc - temps_reference_machine)
+            # Impacto por pieza = pérdida real / frecuencia
+            temps_perdu_par_piece += perte_reelle / freq_qc
+            
+            # Debug info (se mostrará en expansión)
+            if 'debug_qc' not in st.session_state:
+                st.session_state.debug_qc = []
+            st.session_state.debug_qc.append({
+                'nom': qc['nom'],
+                'temps_control': temps_qc,
+                'temps_ref_machine': temps_reference_machine,
+                'perte_reelle': perte_reelle,
+                'frequence': freq_qc,
+                'impact_par_piece': perte_reelle / freq_qc
+            })
 
     # ===================================================
     # KPI CALC
@@ -490,18 +505,17 @@ if st.button("Générer le simogramme"):
     temps_operateur_corrige = total_operator_time * coef_repo
     surcout_operateur = temps_operateur_corrige - total_operator_time
 
-    temps_libre_machine = max(0, max_x - total_operator_time)
+    # Temps cycle = temps total du cycle + temps perdu par les contrôles
+    temps_cycle = max_x + surcout_operateur + temps_perdu_par_piece
 
-    # Temps cycle = temps total + impact contrôle qualité
-    temps_cycle = max_x + surcout_operateur + temps_controle_par_piece
-
-    # Taux Machine = (Temps Machine + Temps TTM) / Temps Cycle
-    temps_machine_total = total_machine_time + total_ttm_time
-    taux_machine = temps_machine_total / temps_cycle if temps_cycle > 0 else 0
+    # Taux Machine = Temps Machine réel (TT + TTM) / Temps Cycle
+    temps_machine_reel = total_machine_time + total_ttm_time
+    taux_machine = temps_machine_reel / temps_cycle if temps_cycle > 0 else 0
 
     # Taux Opérateur = Temps Opérateur corrigé / Temps Cycle
     taux_operateur = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
 
+    # Productivité
     pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
     pieces_jour = pieces_heure * heures_travail
 
@@ -514,9 +528,9 @@ if st.button("Générer le simogramme"):
     col1, col2, col3, col4 = st.columns(4)
 
     col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-    col2.metric("Temps machine (avec TTM)", f"{round(temps_machine_total, 2)} s")
+    col2.metric("Temps machine réel", f"{round(temps_machine_reel, 2)} s")
     col3.metric("Temps opérateur corrigé", f"{round(temps_operateur_corrige, 2)} s")
-    col4.metric("Contrôle qualité/piece", f"{round(temps_controle_par_piece, 2)} s")
+    col4.metric("Temps perdu / pièce", f"{round(temps_perdu_par_piece, 2)} s")
 
     col5, col6, col7, col8 = st.columns(4)
 
@@ -525,16 +539,27 @@ if st.button("Générer le simogramme"):
     col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
     col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
 
-    # Afficher le détail des contrôles qualité
-    if temps_controle_par_piece > 0:
-        st.info(f"💡 Impact des contrôles qualité: {round(temps_controle_par_piece, 2)} secondes par pièce")
+    # Explicación detallada del impacto
+    if temps_perdu_par_piece > 0:
         
-        with st.expander("Détail des contrôles qualité"):
-            for i, qc in enumerate(st.session_state.get("qc_controls", [])):
-                temps_qc = qc.get("temps", 0)
-                freq_qc = qc.get("frequence", 1)
-                impact = temps_qc / freq_qc if freq_qc > 0 else 0
-                st.write(f"**{qc['nom']}**: {temps_qc}s toutes les {freq_qc} pièces → {round(impact, 2)}s/pièce")
+        with st.expander("📊 Détail du calcul d'impact des contrôles qualité"):
+            
+            st.markdown(f"**Temps de référence machine:** {temps_reference_machine} secondes")
+            st.markdown("**Formule:** Perte réelle = max(0, Temps contrôle - Temps référence machine)")
+            st.markdown("**Impact par pièce = Perte réelle / Fréquence**")
+            st.markdown("---")
+            
+            for debug in st.session_state.get('debug_qc', []):
+                st.markdown(f"**{debug['nom']}:**")
+                st.markdown(f"- Temps contrôle: {debug['temps_control']}s")
+                st.markdown(f"- Temps référence machine: {debug['temps_ref_machine']}s")
+                st.markdown(f"- Perte réelle: {debug['perte_reelle']}s")
+                st.markdown(f"- Fréquence: 1/{debug['frequence']} pièces")
+                st.markdown(f"- **Impact: +{round(debug['impact_par_piece'], 2)}s par pièce**")
+                st.markdown("---")
+            
+            st.info(f"💡 Impact total sur le temps de cycle: +{round(temps_perdu_par_piece, 2)} secondes par pièce")
+            st.info(f"📉 Réduction de productivité: de {round(3600/max_x, 1)} à {round(pieces_heure, 1)} pièces/heure")
 
     st.success("Simogramme généré avec succès")
     st.pyplot(fig)
@@ -542,6 +567,10 @@ if st.button("Générer le simogramme"):
     # Sauvegarder la figure pour l'export Excel
     fig.savefig("simogramme.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+    # Limpiar debug
+    if 'debug_qc' in st.session_state:
+        del st.session_state.debug_qc
 
     # ===================================================
     # EXCEL EXPORT
@@ -577,44 +606,46 @@ if st.button("Générer le simogramme"):
         worksheet["A8"] = "Temps cycle (avec contrôles)"
         worksheet["B8"] = round(temps_cycle, 2)
 
-        worksheet["A9"] = "Temps machine (avec TTM)"
-        worksheet["B9"] = round(temps_machine_total, 2)
+        worksheet["A9"] = "Temps machine réel"
+        worksheet["B9"] = round(temps_machine_reel, 2)
 
         worksheet["A10"] = "Temps opérateur corrigé"
         worksheet["B10"] = round(temps_operateur_corrige, 2)
 
-        worksheet["A11"] = "Temps attente"
-        worksheet["B11"] = round(total_wait_time, 2)
+        worksheet["A11"] = "Temps perdu par pièce"
+        worksheet["B11"] = round(temps_perdu_par_piece, 2)
 
-        worksheet["A12"] = "Impact contrôle qualité"
-        worksheet["B12"] = round(temps_controle_par_piece, 2)
+        worksheet["A12"] = "Taux Opérateur"
+        worksheet["B12"] = round(taux_operateur * 100, 2)
 
-        worksheet["A13"] = "Taux Opérateur"
-        worksheet["B13"] = round(taux_operateur * 100, 2)
+        worksheet["A13"] = "Taux Machine"
+        worksheet["B13"] = round(taux_machine * 100, 2)
 
-        worksheet["A14"] = "Taux Machine"
-        worksheet["B14"] = round(taux_machine * 100, 2)
+        worksheet["A14"] = "Pièces / Heure"
+        worksheet["B14"] = round(pieces_heure, 1)
 
-        worksheet["A15"] = "Pièces / Heure"
-        worksheet["B15"] = round(pieces_heure, 1)
+        worksheet["A15"] = "Pièces / Jour"
+        worksheet["B15"] = round(pieces_jour, 1)
 
-        worksheet["A16"] = "Pièces / Jour"
-        worksheet["B16"] = round(pieces_jour, 1)
+        # Détail des contrôles qualité con la nueva lógica
+        worksheet["A17"] = "Détail contrôles qualité (avec logique de perte réelle)"
+        worksheet["A18"] = "Nom contrôle"
+        worksheet["B18"] = "Temps contrôle (s)"
+        worksheet["C18"] = "Temps réf machine (s)"
+        worksheet["D18"] = "Perte réelle (s)"
+        worksheet["E18"] = "Fréquence"
+        worksheet["F18"] = "Impact (s/pièce)"
 
-        # Détail des contrôles qualité
-        worksheet["A18"] = "Détail contrôles qualité"
-        worksheet["A19"] = "Nom contrôle"
-        worksheet["B19"] = "Temps (s)"
-        worksheet["C19"] = "Fréquence"
-        worksheet["D19"] = "Impact (s/pièce)"
-
-        row = 20
+        row = 19
         for qc in st.session_state.get("qc_controls", []):
             worksheet[f"A{row}"] = qc["nom"]
             worksheet[f"B{row}"] = qc["temps"]
-            worksheet[f"C{row}"] = qc["frequence"]
-            impact = qc["temps"] / qc["frequence"] if qc["frequence"] > 0 else 0
-            worksheet[f"D{row}"] = round(impact, 2)
+            worksheet[f"C{row}"] = temps_reference_machine
+            perte = max(0, qc["temps"] - temps_reference_machine)
+            worksheet[f"D{row}"] = round(perte, 2)
+            worksheet[f"E{row}"] = qc["frequence"]
+            impact = perte / qc["frequence"] if qc["frequence"] > 0 else 0
+            worksheet[f"F{row}"] = round(impact, 2)
             row += 1
 
         # Ajouter l'image du simogramme
@@ -624,7 +655,7 @@ if st.button("Générer le simogramme"):
             img = XLImage(image_path)
             img.width = 800
             img.height = 300
-            worksheet.add_image(img, "F2")
+            worksheet.add_image(img, "H2")
 
     # ===================================================
     # DOWNLOAD
