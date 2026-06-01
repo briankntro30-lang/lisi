@@ -535,64 +535,68 @@ fig.savefig(
 )
 
     # ===================================================
-    # EXCEL EXPORT
-    # ===================================================
+# EXCEL EXPORT
+# ===================================================
 
-    excel_path = "simogramme.xlsx"
+excel_path = "simogramme.xlsx"
 
-    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
 
-        edited_df.to_excel(writer, sheet_name="Données", index=False)
+    edited_df.to_excel(writer, sheet_name="Données", index=False)
 
-        workbook = writer.book
-        worksheet = workbook.create_sheet("Simogramme")
+    workbook = writer.book
+    worksheet = workbook.create_sheet("Simogramme")
 
-        worksheet["A1"] = "Référence pièce"
-        worksheet["B1"] = reference_piece
+    worksheet["A1"] = "Référence pièce"
+    worksheet["B1"] = reference_piece
 
-        worksheet["A2"] = "Numéro de la machine"
-        worksheet["B2"] = numéro_machine
+    worksheet["A2"] = "Numéro de la machine"
+    worksheet["B2"] = numéro_machine
 
-        worksheet["A3"] = "PDC"
-        worksheet["B3"] = pdc
+    worksheet["A3"] = "PDC"
+    worksheet["B3"] = pdc
 
-        worksheet["A4"] = "Coefficient rendement"
-        worksheet["B4"] = coef_repo
+    worksheet["A4"] = "Coefficient rendement"
+    worksheet["B4"] = coef_repo
 
-        worksheet["A5"] = "Date"
-        worksheet["B5"] = str(datetime.now())
+    worksheet["A5"] = "Date"
+    worksheet["B5"] = str(datetime.now())
 
-        worksheet["A7"] = "Temps cycle"
-        worksheet["B7"] = round(temps_cycle, 2)
+    worksheet["A7"] = "Temps cycle"
+    worksheet["B7"] = round(temps_cycle, 2)
 
-        worksheet["A8"] = "Temps machine"
-        worksheet["B8"] = round(total_machine_time, 2)
+    worksheet["A8"] = "Temps machine"
+    worksheet["B8"] = round(total_machine_time, 2)
 
-        worksheet["A9"] = "Temps opérateur"
-        worksheet["B9"] = round(total_operator_time, 2)
+    worksheet["A9"] = "Temps opérateur"
+    worksheet["B9"] = round(total_operator_time, 2)
 
-        worksheet["A10"] = "Temps attente"
-        worksheet["B10"] = round(total_wait_time, 2)
+    worksheet["A10"] = "Temps attente"
+    worksheet["B10"] = round(total_wait_time, 2)
 
-        worksheet["A11"] = "Taux Homme"
-        worksheet["B11"] = round(taux_homme * 100, 2)
+    worksheet["A11"] = "Taux Homme"
+    worksheet["B11"] = round(taux_homme * 100, 2)
 
-        worksheet["A12"] = "Taux Machine"
-        worksheet["B12"] = round(taux_machine * 100, 2)
+    worksheet["A12"] = "Taux Machine"
+    worksheet["B12"] = round(taux_machine * 100, 2)
 
-        worksheet["A13"] = "Pièces / Heure"
-        worksheet["B13"] = round(pieces_heure, 1)
+    worksheet["A13"] = "Pièces / Heure"
+    worksheet["B13"] = round(pieces_heure, 1)
 
-        worksheet["A14"] = "Pièces / Jour"
-        worksheet["B14"] = round(pieces_jour, 1)
+    worksheet["A14"] = "Pièces / Jour"
+    worksheet["B14"] = round(pieces_jour, 1)
 
-        img = Image(image_path)
-        worksheet.add_image(img)
+    img = Image(image_path)
+    worksheet.add_image(img)
 
-    with open(excel_path, "rb") as f:
-        st.download_button(
-            "📥 Télécharger Excel",
-            f,
-            file_name="simogramme.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+# ===================================================
+# DOWNLOAD
+# ===================================================
+
+with open(excel_path, "rb") as f:
+    st.download_button(
+        "📥 Télécharger Excel",
+        f,
+        file_name="simogramme.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
