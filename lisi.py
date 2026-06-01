@@ -242,7 +242,6 @@ if st.button("Générer le simogramme"):
     y_op = 0
 
     for i, m in enumerate(machines):
-
         y_positions[m] = (
             step * ((i // 2) + 1)
             * (1 if i % 2 == 0 else -1)
@@ -262,15 +261,12 @@ if st.button("Générer le simogramme"):
     }
 
     # ===================================================
-    # HATCH
+    # DRAW HATCH
     # ===================================================
 
     def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
-
         i = 0
-
         while i < w + h:
-
             line, = ax.plot(
                 [x + i, x + i - h],
                 [y, y + h],
@@ -278,9 +274,7 @@ if st.button("Générer le simogramme"):
                 linewidth=0.6,
                 alpha=0.6
             )
-
             line.set_clip_path(rect)
-
             i += spacing
 
     # ===================================================
@@ -290,26 +284,18 @@ if st.button("Générer le simogramme"):
     for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
-
         start = float(row["Début"])
         temps = float(row["Durée"])
-
         end = start + temps
-
         sys = str(row["Sys"])
 
         tt = bool(row["TT"])
         tm = bool(row["TM"])
         ttm = bool(row["TTM"])
-        tz = bool(row["TR"])
+        tr = bool(row["TR"])
         tf = bool(row["TF"])
 
-        # ===================================================
-        # TT
-        # ===================================================
-
         if tt:
-
             total_machine_time += temps
 
             rect = Rectangle(
@@ -319,27 +305,14 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TT"],
                 edgecolor="black"
             )
-
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_positions[sys],
-                    temps,
-                    h
-                )
+                draw_hatch(ax, rect, start, y_positions[sys], temps, h)
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TM
-        # ===================================================
-
         elif tm:
-
             total_operator_time += temps
 
             rect = Rectangle(
@@ -349,27 +322,14 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TM"],
                 edgecolor="black"
             )
-
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_op,
-                    temps,
-                    h
-                )
+                draw_hatch(ax, rect, start, y_op, temps, h)
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TTM
-        # ===================================================
-
         elif ttm:
-
             total_operator_time += temps
             total_machine_time += temps
 
@@ -380,33 +340,25 @@ if st.button("Générer le simogramme"):
                 facecolor="#FFFFFF00",
                 edgecolor="black"
             )
-
             ax.add_patch(rect)
 
             ax.plot(
-                [start, start + temps],
+                [start, end],
                 [y_op, y_positions[sys]],
                 color="black"
             )
 
             if tf:
                 draw_hatch(
-                    ax,
-                    rect,
-                    start,
-                    y_op,
+                    ax, rect,
+                    start, y_op,
                     temps,
                     abs(y_positions[sys] - y_op)
                 )
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TR
-        # ===================================================
-
-        elif tz:
-
+        elif tr:
             total_wait_time += temps
 
             rect = Rectangle(
@@ -417,17 +369,11 @@ if st.button("Générer le simogramme"):
                 edgecolor="black",
                 alpha=0.6
             )
-
             ax.add_patch(rect)
 
             max_x = max(max_x, end)
 
-        # ===================================================
-        # TEXT
-        # ===================================================
-
         if temps >= 0.5:
-
             ax.text(
                 start + temps/2,
                 y_op - 0.18,
@@ -441,31 +387,17 @@ if st.button("Générer le simogramme"):
     # ===================================================
 
     for m, y in y_positions.items():
-
-        ax.hlines(
-            y,
-            0,
-            max_x,
-            color="black",
-            linewidth=1.5
-        )
+        ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
 
         ax.text(
-            -1.5,
-            y,
+            -1.5, y,
             m,
             ha="right",
             fontsize=14,
             fontweight="bold"
         )
 
-    ax.hlines(
-        y_op,
-        0,
-        max_x,
-        color="black",
-        linewidth=2
-    )
+    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
 
     ax.text(
         -1.5,
@@ -476,133 +408,63 @@ if st.button("Générer le simogramme"):
         fontweight="bold"
     )
 
-    # ===================================================
-    # GRAPH SETTINGS
-    # ===================================================
-
     ax.set_xlim(0, max_x + 2)
-
     ax.set_yticks([])
-
     ax.grid(axis="x", alpha=0.2)
-
     plt.tight_layout()
 
- # ===================================================
-# TEMPS OPÉRATEUR 
-# ===================================================
+    # ===================================================
+    # KPI CALC
+    # ===================================================
 
-temps_operateur_corrige = (
-    total_operator_time * coef_repo
-)
+    temps_operateur_corrige = total_operator_time * coef_repo
+    surcout_operateur = temps_operateur_corrige - total_operator_time
 
-surcout_operateur = (
-    temps_operateur_corrige
-    - total_operator_time
-)
+    temps_libre_machine = max(0, max_x - total_operator_time)
 
-# ===================================================
-# CONTRÔLE QUALITÉ
-# ===================================================
+    impact_controle = 0
+    if temps_controle > 0:
+        if temps_controle > temps_libre_machine:
+            impact_controle = (
+                temps_controle - temps_libre_machine
+            ) / frequence_controle
 
-temps_libre_machine = max(
-    0,
-    max_x - total_operator_time
-)
+    temps_cycle = max_x + surcout_operateur + impact_controle
 
-impact_controle = 0
+    pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
+    pieces_jour = pieces_heure * heures_travail
 
-if temps_controle > 0:
+    taux_homme = (
+        temps_operateur_corrige / temps_cycle
+        if temps_cycle > 0 else 0
+    )
 
-    if temps_controle > temps_libre_machine:
+    taux_machine = (
+        total_machine_time / temps_cycle
+        if temps_cycle > 0 else 0
+    )
 
-        impact_controle = (
-            temps_controle
-            - temps_libre_machine
-        ) / frequence_controle
-
-# ===================================================
-# TEMPS CYCLE 
-# ===================================================
-
-temps_cycle = (
-    max_x
-    + surcout_operateur
-    + impact_controle
-)
-
-temps_disponible = (
-    heures_travail * 3600
-)
-
-pieces_heure = (
-    3600 / temps_cycle
-    if temps_cycle > 0 else 0
-)
-
-pieces_jour = (
-    pieces_heure
-    * heures_travail
-)
-
-taux_homme = (
-    temps_operateur_corrige / temps_cycle
-    if temps_cycle > 0 else 0
-)
-
-taux_machine = (
-    total_machine_time / temps_cycle
-    if temps_cycle > 0 else 0
-)
+    # ===================================================
+    # UI KPI
+    # ===================================================
 
     st.markdown("## KPI")
 
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
+    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
+    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
+    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
+
     col5, col6, col7, col8 = st.columns(4)
 
-    col1.metric(
-        "Temps cycle",
-        f"{round(temps_cycle, 2)} s"
-    )
-
-    col2.metric(
-        "Temps machine",
-        f"{round(total_machine_time, 2)} s"
-    )
-
-    col3.metric(
-        "Temps opérateur",
-        f"{round(total_operator_time, 2)} s"
-    )
-
-    col4.metric(
-        "Attente",
-        f"{round(total_wait_time, 2)} s"
-    )
-
-    col5, col6, col7 = st.columns(3)
-
-    col5.metric(
-        "Taux Homme",
-        f"{round(taux_homme * 100, 1)} %"
-    )
-
-    col6.metric(
-        "Taux Machine",
-        f"{round(taux_machine * 100, 1)} %"
-    )
-
-    col7.metric(
-    "Pièces / Heure",
-    f"{round(pieces_heure, 1)}"
-)
-
-    col8.metric(
-    "Pièces / Jour",
-    f"{round(pieces_jour, 1)}"
-)
+    col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
+    col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
+    col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
+    col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
 
     st.success("Simogramme généré avec succès")
-
     st.pyplot(fig)
 
     # ===================================================
@@ -610,12 +472,7 @@ taux_machine = (
     # ===================================================
 
     image_path = "simogramme.png"
-
-    fig.savefig(
-        image_path,
-        bbox_inches="tight",
-        dpi=300
-    )
+    fig.savefig(image_path, bbox_inches="tight", dpi=300)
 
     # ===================================================
     # EXCEL EXPORT
@@ -623,28 +480,12 @@ taux_machine = (
 
     excel_path = "simogramme.xlsx"
 
-    with pd.ExcelWriter(
-        excel_path,
-        engine="openpyxl"
-    ) as writer:
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
 
-        # ===================================================
-        # DATA SHEET
-        # ===================================================
-
-        edited_df.to_excel(
-            writer,
-            sheet_name="Données",
-            index=False
-        )
+        edited_df.to_excel(writer, sheet_name="Données", index=False)
 
         workbook = writer.book
-
         worksheet = workbook.create_sheet("Simogramme")
-
-        # ===================================================
-        # HEADER INFOS
-        # ===================================================
 
         worksheet["A1"] = "Référence pièce"
         worksheet["B1"] = reference_piece
@@ -658,18 +499,8 @@ taux_machine = (
         worksheet["A4"] = "Coefficient rendement"
         worksheet["B4"] = coef_repo
 
-        worksheet["A5"] = "Vitesse de coupe"
-        worksheet["B5"] = vitesse_coupe
-
-        worksheet["A6"] = "Vitesse d'avance"
-        worksheet["B6"] = vitesse_avance
-
         worksheet["A5"] = "Date"
         worksheet["B5"] = str(datetime.now())
-
-        # ===================================================
-        # KPI
-        # ===================================================
 
         worksheet["A7"] = "Temps cycle"
         worksheet["B7"] = round(temps_cycle, 2)
@@ -689,26 +520,16 @@ taux_machine = (
         worksheet["A12"] = "Taux Machine"
         worksheet["B12"] = round(taux_machine * 100, 2)
 
-       worksheet["A13"] = "Pièces / Heure"
-       worksheet["B13"] = round(pieces_heure, 1)
+        worksheet["A13"] = "Pièces / Heure"
+        worksheet["B13"] = round(pieces_heure, 1)
 
-       worksheet["A14"] = "Pièces / Jour"
-       worksheet["B14"] = round(pieces_jour, 1)
-
-        # ===================================================
-        # IMAGE
-        # ===================================================
+        worksheet["A14"] = "Pièces / Jour"
+        worksheet["B14"] = round(pieces_jour, 1)
 
         img = Image(image_path)
-
         worksheet.add_image(img)
 
-    # ===================================================
-    # DOWNLOAD
-    # ===================================================
-
     with open(excel_path, "rb") as f:
-
         st.download_button(
             "📥 Télécharger Excel",
             f,
