@@ -101,13 +101,13 @@ with st.sidebar:
     vitesse_coupe = st.text_input("Vitesse de coupe")
     vitesse_avance = st.text_input("Vitesse d'avance")
 
-    coef_repo = st.number_input(
-        "Coefficient rendement",
-        min_value=0.1,
-        max_value=1.0,
-        value=0.85,
-        step=0.05
-    )
+coef_repo = st.number_input(
+    "Coefficient rendement opérateur",
+    min_value=0.10,
+    max_value=5.00,
+    value=1.00,
+    step=0.05
+)
 
     heures_travail = st.number_input(
         "Heures de travail / jour",
@@ -116,7 +116,21 @@ with st.sidebar:
         value=7.0,
         step=0.5
     )
+st.markdown("## Contrôle qualité")
 
+temps_controle = st.number_input(
+    "Temps contrôle (s)",
+    min_value=0.0,
+    value=0.0,
+    step=1.0
+)
+
+frequence_controle = st.number_input(
+    "Fréquence contrôle (pièces)",
+    min_value=1,
+    value=10,
+    step=1
+)
     st.markdown("---")
 
     if "machines" not in st.session_state:
@@ -472,33 +486,76 @@ if st.button("Générer le simogramme"):
 
     plt.tight_layout()
 
-    # ===================================================
-    # KPI
-    # ===================================================
+ # ===================================================
+# TEMPS OPÉRATEUR 
+# ===================================================
 
-    temps_cycle = max_x
-    
-    temps_disponible = heures_travail * 3600
+temps_operateur_corrige = (
+    total_operator_time * coef_repo
+)
 
-    pieces_jour = (
-        (temps_disponible / temps_cycle)
-        * coef_repo
-        if temps_cycle > 0 else 0
-    )
+surcout_operateur = (
+    temps_operateur_corrige
+    - total_operator_time
+)
 
-    taux_homme = (
-        total_operator_time / temps_cycle
-        if temps_cycle > 0 else 0
-    )
+# ===================================================
+# CONTRÔLE QUALITÉ
+# ===================================================
 
-    taux_machine = (
-        total_machine_time / temps_cycle
-        if temps_cycle > 0 else 0
-    )
+temps_libre_machine = max(
+    0,
+    max_x - total_operator_time
+)
+
+impact_controle = 0
+
+if temps_controle > 0:
+
+    if temps_controle > temps_libre_machine:
+
+        impact_controle = (
+            temps_controle
+            - temps_libre_machine
+        ) / frequence_controle
+
+# ===================================================
+# TEMPS CYCLE 
+# ===================================================
+
+temps_cycle = (
+    max_x
+    + surcout_operateur
+    + impact_controle
+)
+
+temps_disponible = (
+    heures_travail * 3600
+)
+
+pieces_heure = (
+    3600 / temps_cycle
+    if temps_cycle > 0 else 0
+)
+
+pieces_jour = (
+    pieces_heure
+    * heures_travail
+)
+
+taux_homme = (
+    temps_operateur_corrige / temps_cycle
+    if temps_cycle > 0 else 0
+)
+
+taux_machine = (
+    total_machine_time / temps_cycle
+    if temps_cycle > 0 else 0
+)
 
     st.markdown("## KPI")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col5, col6, col7, col8 = st.columns(4)
 
     col1.metric(
         "Temps cycle",
@@ -533,9 +590,14 @@ if st.button("Générer le simogramme"):
     )
 
     col7.metric(
-        "Pièces / Jour",
-        f"{round(pieces_jour, 1)}"
-    )
+    "Pièces / Heure",
+    f"{round(pieces_heure, 1)}"
+)
+
+    col8.metric(
+    "Pièces / Jour",
+    f"{round(pieces_jour, 1)}"
+)
 
     st.success("Simogramme généré avec succès")
 
@@ -625,8 +687,11 @@ if st.button("Générer le simogramme"):
         worksheet["A12"] = "Taux Machine"
         worksheet["B12"] = round(taux_machine * 100, 2)
 
-        worksheet["A13"] = "Pièces / Jour"
-        worksheet["B13"] = round(pieces_jour, 1)
+       worksheet["A13"] = "Pièces / Heure"
+       worksheet["B13"] = round(pieces_heure, 1)
+
+       worksheet["A14"] = "Pièces / Jour"
+       worksheet["B14"] = round(pieces_jour, 1)
 
         # ===================================================
         # IMAGE
