@@ -76,7 +76,6 @@ def login():
             else:
                 st.error("Identifiants incorrects")
 
-
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
@@ -293,6 +292,7 @@ if st.button("Générer le simogramme"):
     total_machine_time = 0
     total_operator_time = 0
     total_wait_time = 0
+    total_ttm_time = 0
 
     COLORS = {
         "TT": "#1f4fff",
@@ -373,6 +373,7 @@ if st.button("Générer le simogramme"):
         elif ttm:
             total_operator_time += temps
             total_machine_time += temps
+            total_ttm_time += temps
 
             rect = Rectangle(
                 (start, y_op),
@@ -455,13 +456,32 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
 
     # ===================================================
-    # SAFETY INIT (EVITA CRASHES)
+    # SAFETY INIT
     # ===================================================
 
     total_operator_time = total_operator_time if "total_operator_time" in locals() else 0
     total_machine_time = total_machine_time if "total_machine_time" in locals() else 0
     total_wait_time = total_wait_time if "total_wait_time" in locals() else 0
+    total_ttm_time = total_ttm_time if "total_ttm_time" in locals() else 0
     max_x = max_x if "max_x" in locals() else 0
+
+    # ===================================================
+    # CALCUL IMPACT CONTRÔLE QUALITÉ
+    # ===================================================
+
+    temps_controle_par_piece = 0
+    
+    for qc in st.session_state.get("qc_controls", []):
+        temps_qc = qc.get("temps", 0)
+        freq_qc = qc.get("frequence", 1)
+        
+        if temps_qc > 0 and freq_qc > 0:
+            # Pour chaque pièce, le temps de contrôle est réparti sur la fréquence
+            # Exemple: contrôle de 30s toutes les 10 pièces = 3s par pièce
+            temps_controle_par_piece += temps_qc / freq_qc
+
+    # Ajouter l'impact du temps de référence machine
+    temps_controle_par_piece += temps_reference_machine / 3600 if temps_reference_machine > 0 else 0
 
     # ===================================================
     # KPI CALC
@@ -472,30 +492,18 @@ if st.button("Générer le simogramme"):
 
     temps_libre_machine = max(0, max_x - total_operator_time)
 
-    # ===================================================
-    # CONTROLE QUALITÉ
-    # ===================================================
+    # Temps cycle = temps total + impact contrôle qualité
+    temps_cycle = max_x + surcout_operateur + temps_controle_par_piece
 
-    impact_controle = 0
+    # Taux Machine = (Temps Machine + Temps TTM) / Temps Cycle
+    temps_machine_total = total_machine_time + total_ttm_time
+    taux_machine = temps_machine_total / temps_cycle if temps_cycle > 0 else 0
 
-    for qc in st.session_state.get("qc_controls", []):
-        temps_qc = qc.get("temps", 0)
-        freq_qc = qc.get("frequence", 1)
-
-        if temps_qc > 0:
-            impact_controle += temps_qc / freq_qc
-
-    # ===================================================
-    # CYCLE TIME
-    # ===================================================
-
-    temps_cycle = max_x + surcout_operateur + impact_controle
+    # Taux Opérateur = Temps Opérateur corrigé / Temps Cycle
+    taux_operateur = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
 
     pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
     pieces_jour = pieces_heure * heures_travail
-
-    taux_homme = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
-    taux_machine = total_machine_time / temps_cycle if temps_cycle > 0 else 0
 
     # ===================================================
     # UI KPI
@@ -506,16 +514,27 @@ if st.button("Générer le simogramme"):
     col1, col2, col3, col4 = st.columns(4)
 
     col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
-    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
-    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
+    col2.metric("Temps machine (avec TTM)", f"{round(temps_machine_total, 2)} s")
+    col3.metric("Temps opérateur corrigé", f"{round(temps_operateur_corrige, 2)} s")
+    col4.metric("Contrôle qualité/piece", f"{round(temps_controle_par_piece, 2)} s")
 
     col5, col6, col7, col8 = st.columns(4)
 
-    col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
+    col5.metric("Taux Opérateur", f"{round(taux_operateur * 100, 1)} %")
     col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
     col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
     col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
+
+    # Afficher le détail des contrôles qualité
+    if temps_controle_par_piece > 0:
+        st.info(f"💡 Impact des contrôles qualité: {round(temps_controle_par_piece, 2)} secondes par pièce")
+        
+        with st.expander("Détail des contrôles qualité"):
+            for i, qc in enumerate(st.session_state.get("qc_controls", [])):
+                temps_qc = qc.get("temps", 0)
+                freq_qc = qc.get("frequence", 1)
+                impact = temps_qc / freq_qc if freq_qc > 0 else 0
+                st.write(f"**{qc['nom']}**: {temps_qc}s toutes les {freq_qc} pièces → {round(impact, 2)}s/pièce")
 
     st.success("Simogramme généré avec succès")
     st.pyplot(fig)
@@ -549,42 +568,63 @@ if st.button("Générer le simogramme"):
         worksheet["A4"] = "Coefficient rendement"
         worksheet["B4"] = coef_repo
 
-        worksheet["A5"] = "Date"
-        worksheet["B5"] = str(datetime.now())
+        worksheet["A5"] = "Temps référence machine"
+        worksheet["B5"] = temps_reference_machine
 
-        worksheet["A7"] = "Temps cycle"
-        worksheet["B7"] = round(temps_cycle, 2)
+        worksheet["A6"] = "Date"
+        worksheet["B6"] = str(datetime.now())
 
-        worksheet["A8"] = "Temps machine"
-        worksheet["B8"] = round(total_machine_time, 2)
+        worksheet["A8"] = "Temps cycle (avec contrôles)"
+        worksheet["B8"] = round(temps_cycle, 2)
 
-        worksheet["A9"] = "Temps opérateur"
-        worksheet["B9"] = round(total_operator_time, 2)
+        worksheet["A9"] = "Temps machine (avec TTM)"
+        worksheet["B9"] = round(temps_machine_total, 2)
 
-        worksheet["A10"] = "Temps attente"
-        worksheet["B10"] = round(total_wait_time, 2)
+        worksheet["A10"] = "Temps opérateur corrigé"
+        worksheet["B10"] = round(temps_operateur_corrige, 2)
 
-        worksheet["A11"] = "Taux Homme"
-        worksheet["B11"] = round(taux_homme * 100, 2)
+        worksheet["A11"] = "Temps attente"
+        worksheet["B11"] = round(total_wait_time, 2)
 
-        worksheet["A12"] = "Taux Machine"
-        worksheet["B12"] = round(taux_machine * 100, 2)
+        worksheet["A12"] = "Impact contrôle qualité"
+        worksheet["B12"] = round(temps_controle_par_piece, 2)
 
-        worksheet["A13"] = "Pièces / Heure"
-        worksheet["B13"] = round(pieces_heure, 1)
+        worksheet["A13"] = "Taux Opérateur"
+        worksheet["B13"] = round(taux_operateur * 100, 2)
 
-        worksheet["A14"] = "Pièces / Jour"
-        worksheet["B14"] = round(pieces_jour, 1)
+        worksheet["A14"] = "Taux Machine"
+        worksheet["B14"] = round(taux_machine * 100, 2)
+
+        worksheet["A15"] = "Pièces / Heure"
+        worksheet["B15"] = round(pieces_heure, 1)
+
+        worksheet["A16"] = "Pièces / Jour"
+        worksheet["B16"] = round(pieces_jour, 1)
+
+        # Détail des contrôles qualité
+        worksheet["A18"] = "Détail contrôles qualité"
+        worksheet["A19"] = "Nom contrôle"
+        worksheet["B19"] = "Temps (s)"
+        worksheet["C19"] = "Fréquence"
+        worksheet["D19"] = "Impact (s/pièce)"
+
+        row = 20
+        for qc in st.session_state.get("qc_controls", []):
+            worksheet[f"A{row}"] = qc["nom"]
+            worksheet[f"B{row}"] = qc["temps"]
+            worksheet[f"C{row}"] = qc["frequence"]
+            impact = qc["temps"] / qc["frequence"] if qc["frequence"] > 0 else 0
+            worksheet[f"D{row}"] = round(impact, 2)
+            row += 1
 
         # Ajouter l'image du simogramme
         image_path = os.path.join(os.getcwd(), "simogramme.png")
 
         if os.path.exists(image_path):
             img = XLImage(image_path)
-            # Redimensionner l'image si nécessaire
             img.width = 800
             img.height = 300
-            worksheet.add_image(img, "D2")
+            worksheet.add_image(img, "F2")
 
     # ===================================================
     # DOWNLOAD
