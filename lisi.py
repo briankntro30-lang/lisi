@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from openpyxl.drawing.image import Image as XLImage
 from datetime import datetime
+import os
 
 # ===================================================
 # CONFIG
@@ -184,6 +185,7 @@ with st.sidebar:
         )
 
         st.rerun()
+
 # ===================================================
 # TABLES
 # ===================================================
@@ -452,140 +454,146 @@ if st.button("Générer le simogramme"):
     ax.grid(axis="x", alpha=0.2)
     plt.tight_layout()
 
- # ===================================================
-# SAFETY INIT (EVITA CRASHES)
-# ===================================================
-
-total_operator_time = total_operator_time if "total_operator_time" in locals() else 0
-total_machine_time = total_machine_time if "total_machine_time" in locals() else 0
-total_wait_time = total_wait_time if "total_wait_time" in locals() else 0
-max_x = max_x if "max_x" in locals() else 0
-
-# ===================================================
-# KPI CALC
-# ===================================================
-
-temps_operateur_corrige = total_operator_time * coef_repo
-surcout_operateur = temps_operateur_corrige - total_operator_time
-
-temps_libre_machine = max(0, max_x - total_operator_time)
-
-# ===================================================
-# CONTROLE QUALITÉ
-# ===================================================
-
-impact_controle = 0
-
-for qc in st.session_state.get("qc_controls", []):
-    temps_qc = qc.get("temps", 0)
-    freq_qc = qc.get("frequence", 1)
-
-    if temps_qc > 0:
-        impact_controle += temps_qc / freq_qc
-
-# ===================================================
-# CYCLE TIME
-# ===================================================
-
-temps_cycle = max_x + surcout_operateur + impact_controle
-
-pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
-pieces_jour = pieces_heure * heures_travail
-
-taux_homme = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
-taux_machine = total_machine_time / temps_cycle if temps_cycle > 0 else 0
-
-# ===================================================
-# UI KPI
-# ===================================================
-
-st.markdown("## KPI")
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
-col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
-col4.metric("Attente", f"{round(total_wait_time, 2)} s")
-
-col5, col6, col7, col8 = st.columns(4)
-
-col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
-col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
-col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
-col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
-
-st.success("Simogramme généré avec succès")
-st.pyplot(fig)
     # ===================================================
-# EXCEL EXPORT
-# ===================================================
+    # SAFETY INIT (EVITA CRASHES)
+    # ===================================================
 
-excel_path = "simogramme.xlsx"
+    total_operator_time = total_operator_time if "total_operator_time" in locals() else 0
+    total_machine_time = total_machine_time if "total_machine_time" in locals() else 0
+    total_wait_time = total_wait_time if "total_wait_time" in locals() else 0
+    max_x = max_x if "max_x" in locals() else 0
 
-with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+    # ===================================================
+    # KPI CALC
+    # ===================================================
 
-    edited_df.to_excel(writer, sheet_name="Données", index=False)
+    temps_operateur_corrige = total_operator_time * coef_repo
+    surcout_operateur = temps_operateur_corrige - total_operator_time
 
-    workbook = writer.book
-    worksheet = workbook.create_sheet("Simogramme")
+    temps_libre_machine = max(0, max_x - total_operator_time)
 
-    worksheet["A1"] = "Référence pièce"
-    worksheet["B1"] = reference_piece
+    # ===================================================
+    # CONTROLE QUALITÉ
+    # ===================================================
 
-    worksheet["A2"] = "Numéro de la machine"
-    worksheet["B2"] = numéro_machine
+    impact_controle = 0
 
-    worksheet["A3"] = "PDC"
-    worksheet["B3"] = pdc
+    for qc in st.session_state.get("qc_controls", []):
+        temps_qc = qc.get("temps", 0)
+        freq_qc = qc.get("frequence", 1)
 
-    worksheet["A4"] = "Coefficient rendement"
-    worksheet["B4"] = coef_repo
+        if temps_qc > 0:
+            impact_controle += temps_qc / freq_qc
 
-    worksheet["A5"] = "Date"
-    worksheet["B5"] = str(datetime.now())
+    # ===================================================
+    # CYCLE TIME
+    # ===================================================
 
-    worksheet["A7"] = "Temps cycle"
-    worksheet["B7"] = round(temps_cycle, 2)
+    temps_cycle = max_x + surcout_operateur + impact_controle
 
-    worksheet["A8"] = "Temps machine"
-    worksheet["B8"] = round(total_machine_time, 2)
+    pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
+    pieces_jour = pieces_heure * heures_travail
 
-    worksheet["A9"] = "Temps opérateur"
-    worksheet["B9"] = round(total_operator_time, 2)
+    taux_homme = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
+    taux_machine = total_machine_time / temps_cycle if temps_cycle > 0 else 0
 
-    worksheet["A10"] = "Temps attente"
-    worksheet["B10"] = round(total_wait_time, 2)
+    # ===================================================
+    # UI KPI
+    # ===================================================
 
-    worksheet["A11"] = "Taux Homme"
-    worksheet["B11"] = round(taux_homme * 100, 2)
+    st.markdown("## KPI")
 
-    worksheet["A12"] = "Taux Machine"
-    worksheet["B12"] = round(taux_machine * 100, 2)
+    col1, col2, col3, col4 = st.columns(4)
 
-    worksheet["A13"] = "Pièces / Heure"
-    worksheet["B13"] = round(pieces_heure, 1)
+    col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
+    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
+    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
+    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
 
-    worksheet["A14"] = "Pièces / Jour"
-    worksheet["B14"] = round(pieces_jour, 1)
+    col5, col6, col7, col8 = st.columns(4)
 
-    from openpyxl.drawing.image import Image as XLImage
-import os
+    col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
+    col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
+    col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
+    col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
 
-image_path = os.path.join(os.getcwd(), "simogramme.png")
+    st.success("Simogramme généré avec succès")
+    st.pyplot(fig)
+    
+    # Sauvegarder la figure pour l'export Excel
+    fig.savefig("simogramme.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
-if os.path.exists(image_path):
-    img = XLImage(image_path)
-    worksheet.add_image(img, "D2")
+    # ===================================================
+    # EXCEL EXPORT
+    # ===================================================
 
-# ===================================================
-# DOWNLOAD
-# ===================================================
+    excel_path = "simogramme.xlsx"
 
-with open(excel_path, "rb") as f:
-    st.download_button(
-        "📥 Télécharger Excel",
-        f,
-        file_name="simogramme.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+
+        edited_df.to_excel(writer, sheet_name="Données", index=False)
+
+        workbook = writer.book
+        worksheet = workbook.create_sheet("Simogramme")
+
+        worksheet["A1"] = "Référence pièce"
+        worksheet["B1"] = reference_piece
+
+        worksheet["A2"] = "Numéro de la machine"
+        worksheet["B2"] = numéro_machine
+
+        worksheet["A3"] = "PDC"
+        worksheet["B3"] = pdc
+
+        worksheet["A4"] = "Coefficient rendement"
+        worksheet["B4"] = coef_repo
+
+        worksheet["A5"] = "Date"
+        worksheet["B5"] = str(datetime.now())
+
+        worksheet["A7"] = "Temps cycle"
+        worksheet["B7"] = round(temps_cycle, 2)
+
+        worksheet["A8"] = "Temps machine"
+        worksheet["B8"] = round(total_machine_time, 2)
+
+        worksheet["A9"] = "Temps opérateur"
+        worksheet["B9"] = round(total_operator_time, 2)
+
+        worksheet["A10"] = "Temps attente"
+        worksheet["B10"] = round(total_wait_time, 2)
+
+        worksheet["A11"] = "Taux Homme"
+        worksheet["B11"] = round(taux_homme * 100, 2)
+
+        worksheet["A12"] = "Taux Machine"
+        worksheet["B12"] = round(taux_machine * 100, 2)
+
+        worksheet["A13"] = "Pièces / Heure"
+        worksheet["B13"] = round(pieces_heure, 1)
+
+        worksheet["A14"] = "Pièces / Jour"
+        worksheet["B14"] = round(pieces_jour, 1)
+
+        # Ajouter l'image du simogramme
+        image_path = os.path.join(os.getcwd(), "simogramme.png")
+
+        if os.path.exists(image_path):
+            img = XLImage(image_path)
+            # Redimensionner l'image si nécessaire
+            img.width = 800
+            img.height = 300
+            worksheet.add_image(img, "D2")
+
+    # ===================================================
+    # DOWNLOAD
+    # ===================================================
+
+    with open(excel_path, "rb") as f:
+        st.download_button(
+            "📥 Télécharger Excel",
+            f,
+            file_name="simogramme.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
