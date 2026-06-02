@@ -902,6 +902,4 @@ with col1:
                     st.session_state["machines"].remove(machine)
                     st.rerun()
 
-with col2:
-    st.markdown("### Actions")
-    if st.button("➕ Ajouter machine", use) :
+
