@@ -16,7 +16,3 @@ def render_sidebar():
         st.session_state["heures_travail"] = st.number_input(
             "Heures / jour", 1.0, 24.0, 7.0, 0.5
         )
-
-        st.session_state["temps_reference_machine"] = st.number_input(
-            "Temps référence machine", 0.0, 10000.0, 0.0
-        )
