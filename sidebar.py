@@ -5,17 +5,43 @@ def render_sidebar():
 
     with st.sidebar:
 
-        set_style()
-        st.image(LOGO_URL, width= 200)
-        st.title("Configuration")
+    st.image(LOGO_URL, width=220)
 
-        st.session_state["reference_piece"] = st.text_input("Référence pièce")
-        st.session_state["pdc"] = st.text_input("PDC")
+    st.title("Configuration")
 
-        st.session_state["coef_repo"] = st.number_input(
-            "Coefficient rendement", 0.1, 5.0, 1.0, 0.05
+    st.markdown("## Informations production")
+
+    reference_piece = st.text_input("Référence pièce")
+    numéro_machine = st.text_input("Numéro de la machine")
+    pdc = st.text_input("PDC")
+    vitesse_coupe = st.text_input("Vitesse de coupe")
+    vitesse_avance = st.text_input("Vitesse d'avance")
+
+    coef_repo = st.number_input(
+        "Coefficient rendement",
+        min_value=0.1,
+        max_value=1.0,
+        value=0.85,
+        step=0.05
+    )
+
+    heures_travail = st.number_input(
+        "Heures de travail / jour",
+        min_value=1.0,
+        max_value=24.0,
+        value=7.0,
+        step=0.5
+    )
+
+    st.markdown("---")
+
+    if "machines" not in st.session_state:
+        st.session_state["machines"] = ["M1"]
+
+    if st.button("➕ Ajouter machine"):
+
+        st.session_state["machines"].append(
+            f"M{len(st.session_state['machines'])+1}"
         )
 
-        st.session_state["heures_travail"] = st.number_input(
-            "Heures / jour", 1.0, 24.0, 7.0, 0.5
-        )
+        st.rerun()
