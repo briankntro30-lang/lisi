@@ -1,6 +1,6 @@
 import streamlit as st
 
-LOGO_URL = "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg"
+LOGO_URL = "https://www.cluster-nogentech.com/wp-content/uploads/2023/10/Lisi-Aerospace-bologne-industrie-aeronautique-forge-matricage-usinage-composant-aeronautique-assemblage.png"
 
 def set_style():
     st.markdown("""
