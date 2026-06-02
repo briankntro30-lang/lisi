@@ -13,11 +13,8 @@ from excel import export_excel
 from models import init_db
 from backup import auto_backup
 
-from repository import (
-    get_simogrammes,
-    save_simogramme,
-    save_operations
-)
+import repository
+st.write("REPOSITORY IMPORT OK")
 
 # ===================================================
 # INIT
