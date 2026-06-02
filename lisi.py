@@ -13,11 +13,6 @@ from excel import export_excel
 from models import init_db
 from backup import auto_backup
 
-import repository as repository
-repository.get_simogrammes()
-repository.save_simogramme(kpis)
-repository.save_operations(sim_id, edited_df)
-
 # ===================================================
 # INIT
 # ===================================================
