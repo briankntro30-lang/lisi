@@ -82,7 +82,13 @@ if "logged_in" not in st.session_state:
 if not st.session_state["logged_in"]:
     login()
     st.stop()
+pg = st.navigation([
+    st.Page("simogramme.py", title="Simogramme"),
+    st.Page("historique.py", title="Historique"),
+    st.Page("analyse.py", title="Analyse")
+])
 
+pg.run()
 # ===================================================
 # SIDEBAR
 # ===================================================
@@ -130,13 +136,6 @@ with st.sidebar:
 
         st.rerun()
 
-pg = st.navigation([
-    st.Page("simogramme.py", title="Simogramme"),
-    st.Page("historique.py", title="Historique"),
-    st.Page("analyse.py", title="Analyse")
-])
-
-pg.run()
 # ===================================================
 # TABLES
 # ===================================================
