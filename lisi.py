@@ -1,17 +1,17 @@
 import streamlit as st
 from datetime import datetime
 
-from config import set_style, LOGO_URL
-from auth import login_page
+from Configuration import set_style, LOGO_URL
+from login import login_page
 from state import init_state
-from ui_sidebar import render_sidebar
-from ui_tables import render_tables
+from sidebar import render_sidebar
+from tables import render_tables
 from simogramme import generate_simogramme
-from excel_export import export_excel
+from excel import export_excel
 
-from db.models import init_db
-from db.repository import save_simogramme, save_operations
-from utils.backup import auto_backup
+from models import init_db
+from repository import save_simogramme, save_operations
+from backup import auto_backup
 
 # =========================
 # INIT
