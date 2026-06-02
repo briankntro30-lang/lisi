@@ -14,7 +14,9 @@ from models import init_db
 from backup import auto_backup
 
 import repository
-st.write("REPOSITORY IMPORT OK")
+repository.get_simogrammes()
+repository.save_simogramme(...)
+repository.save_operations(...)
 
 # ===================================================
 # INIT
