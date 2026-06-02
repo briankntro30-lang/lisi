@@ -43,7 +43,7 @@ menu = st.sidebar.selectbox("Menu", ["Simogramme", "Historique"])
 # =========================
 
 if menu == "Historique":
-    from db.repository import get_simogrammes
+    from repository import get_simogrammes
 
     st.title("📊 Historique des simogrammes")
 
