@@ -15,7 +15,7 @@ from backup import auto_backup
 
 import repository as repository
 repository.get_simogrammes()
-repository.save_simogramme(meta, kips)
+repository.save_simogramme(meta, kpis)
 repository.save_operations(sim_id, edited_df)
 
 # ===================================================
