@@ -904,4 +904,4 @@ with col1:
 
 with col2:
     st.markdown("### Actions")
-    if st.button("➕ Ajouter machine", use
+    if st.button("➕ Ajouter machine", use)
