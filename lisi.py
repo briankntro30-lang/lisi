@@ -10,7 +10,6 @@ from simogramme import generate_simogramme
 from excel import export_excel
 
 from models import init_db
-from repository import save_simogramme, save_operations
 from backup import auto_backup
 
 # =========================
