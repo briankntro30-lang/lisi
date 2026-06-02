@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 
-from Configuration import set_style, LOGO_URL
+from configuration import set_style, LOGO_URL
 from login import login_page
 from state import init_state
 from sidebar import render_sidebar
