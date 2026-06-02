@@ -6,7 +6,7 @@ def render_sidebar():
     with st.sidebar:
 
         set_style()
-        st.image(LOGO_URL, width=250)
+        st.image(LOGO_URL, width= 200)
         st.title("Configuration")
 
         st.session_state["reference_piece"] = st.text_input("Référence pièce")
