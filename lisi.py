@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from openpyxl.drawing.image import Image as XLImage
 from datetime import datetime
-import os
 
 # ===================================================
 # CONFIG
