@@ -1,4 +1,8 @@
 import streamlit as st
+from configuration import LOGO_URL
+
+set_style()
+st.image(LOGO_URL, width=250)
 
 def render_sidebar():
 
