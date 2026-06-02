@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.image import Image
 from datetime import datetime
-import os
 
 # ===================================================
 # CONFIG
@@ -76,12 +75,17 @@ def login():
             else:
                 st.error("Identifiants incorrects")
 
+
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
 if not st.session_state["logged_in"]:
     login()
     st.stop()
+
+# ===================================================
+# SIDEBAR
+# ===================================================
 
 with st.sidebar:
 
@@ -98,10 +102,10 @@ with st.sidebar:
     vitesse_avance = st.text_input("Vitesse d'avance")
 
     coef_repo = st.number_input(
-        "Coefficient rendement opérateur",
-        min_value=0.10,
-        max_value=5.00,
-        value=1.00,
+        "Coefficient rendement",
+        min_value=0.1,
+        max_value=1.0,
+        value=0.85,
         step=0.05
     )
 
@@ -115,66 +119,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ===================================================
-    # TEMPS DE RÉFÉRENCE MACHINE
-    # ===================================================
-
-    temps_reference_machine = st.number_input(
-        "Temps de référence machine (s) - Ce que la machine pourrait produire pendant le contrôle",
-        min_value=0.0,
-        value=0.0,
-        step=1.0,
-        help="Si le contrôle dure 30s et la machine peut produire 20s, la perte réelle est de 10s"
-    )
-
-    st.markdown("---")
-
-    # ===================================================
-    # CONTRÔLE QUALITÉ (MULTIPLE)
-    # ===================================================
-
-    st.markdown("## Contrôle qualité")
-
-    if "qc_controls" not in st.session_state:
-        st.session_state["qc_controls"] = [
-            {"nom": "QC1", "temps": 0.0, "frequence": 10}
-        ]
-
-    if st.button("➕ Ajouter contrôle qualité"):
-
-        st.session_state["qc_controls"].append(
-            {
-                "nom": f"QC{len(st.session_state['qc_controls'])+1}",
-                "temps": 0.0,
-                "frequence": 10
-            }
-        )
-        st.rerun()
-
-    for i, qc in enumerate(st.session_state["qc_controls"]):
-
-        st.markdown(f"### {qc['nom']}")
-
-        qc["temps"] = st.number_input(
-            f"Temps contrôle (s)",
-            min_value=0.0,
-            key=f"qc_temps_{i}",
-            value=qc["temps"]
-        )
-
-        qc["frequence"] = st.number_input(
-            f"Fréquence (pièces)",
-            min_value=1,
-            key=f"qc_freq_{i}",
-            value=qc["frequence"]
-        )
-
-    st.markdown("---")
-
-    # ===================================================
-    # MACHINE MANAGEMENT
-    # ===================================================
-
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
 
@@ -185,7 +129,6 @@ with st.sidebar:
         )
 
         st.rerun()
-
 # ===================================================
 # TABLES
 # ===================================================
@@ -283,6 +226,7 @@ if st.button("Générer le simogramme"):
     y_op = 0
 
     for i, m in enumerate(machines):
+
         y_positions[m] = (
             step * ((i // 2) + 1)
             * (1 if i % 2 == 0 else -1)
@@ -293,7 +237,6 @@ if st.button("Générer le simogramme"):
     total_machine_time = 0
     total_operator_time = 0
     total_wait_time = 0
-    total_ttm_time = 0
 
     COLORS = {
         "TT": "#1f4fff",
@@ -303,12 +246,15 @@ if st.button("Générer le simogramme"):
     }
 
     # ===================================================
-    # DRAW HATCH
+    # HATCH
     # ===================================================
 
     def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
+
         i = 0
+
         while i < w + h:
+
             line, = ax.plot(
                 [x + i, x + i - h],
                 [y, y + h],
@@ -316,7 +262,9 @@ if st.button("Générer le simogramme"):
                 linewidth=0.6,
                 alpha=0.6
             )
+
             line.set_clip_path(rect)
+
             i += spacing
 
     # ===================================================
@@ -326,18 +274,26 @@ if st.button("Générer le simogramme"):
     for _, row in edited_df.iterrows():
 
         op = str(row["Etape"])
+
         start = float(row["Début"])
         temps = float(row["Durée"])
+
         end = start + temps
+
         sys = str(row["Sys"])
 
         tt = bool(row["TT"])
         tm = bool(row["TM"])
         ttm = bool(row["TTM"])
-        tr = bool(row["TR"])
+        tz = bool(row["TR"])
         tf = bool(row["TF"])
 
+        # ===================================================
+        # TT
+        # ===================================================
+
         if tt:
+
             total_machine_time += temps
 
             rect = Rectangle(
@@ -347,14 +303,27 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TT"],
                 edgecolor="black"
             )
+
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(ax, rect, start, y_positions[sys], temps, h)
+                draw_hatch(
+                    ax,
+                    rect,
+                    start,
+                    y_positions[sys],
+                    temps,
+                    h
+                )
 
             max_x = max(max_x, end)
 
+        # ===================================================
+        # TM
+        # ===================================================
+
         elif tm:
+
             total_operator_time += temps
 
             rect = Rectangle(
@@ -364,17 +333,29 @@ if st.button("Générer le simogramme"):
                 facecolor=COLORS["TM"],
                 edgecolor="black"
             )
+
             ax.add_patch(rect)
 
             if tf:
-                draw_hatch(ax, rect, start, y_op, temps, h)
+                draw_hatch(
+                    ax,
+                    rect,
+                    start,
+                    y_op,
+                    temps,
+                    h
+                )
 
             max_x = max(max_x, end)
 
+        # ===================================================
+        # TTM
+        # ===================================================
+
         elif ttm:
+
             total_operator_time += temps
             total_machine_time += temps
-            total_ttm_time += temps
 
             rect = Rectangle(
                 (start, y_op),
@@ -383,25 +364,33 @@ if st.button("Générer le simogramme"):
                 facecolor="#FFFFFF00",
                 edgecolor="black"
             )
+
             ax.add_patch(rect)
 
             ax.plot(
-                [start, end],
+                [start, start + temps],
                 [y_op, y_positions[sys]],
                 color="black"
             )
 
             if tf:
                 draw_hatch(
-                    ax, rect,
-                    start, y_op,
+                    ax,
+                    rect,
+                    start,
+                    y_op,
                     temps,
                     abs(y_positions[sys] - y_op)
                 )
 
             max_x = max(max_x, end)
 
-        elif tr:
+        # ===================================================
+        # TR
+        # ===================================================
+
+        elif tz:
+
             total_wait_time += temps
 
             rect = Rectangle(
@@ -412,11 +401,17 @@ if st.button("Générer le simogramme"):
                 edgecolor="black",
                 alpha=0.6
             )
+
             ax.add_patch(rect)
 
             max_x = max(max_x, end)
 
+        # ===================================================
+        # TEXT
+        # ===================================================
+
         if temps >= 0.5:
+
             ax.text(
                 start + temps/2,
                 y_op - 0.18,
@@ -430,17 +425,31 @@ if st.button("Générer le simogramme"):
     # ===================================================
 
     for m, y in y_positions.items():
-        ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
+
+        ax.hlines(
+            y,
+            0,
+            max_x,
+            color="black",
+            linewidth=1.5
+        )
 
         ax.text(
-            -1.5, y,
+            -1.5,
+            y,
             m,
             ha="right",
             fontsize=14,
             fontweight="bold"
         )
 
-    ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
+    ax.hlines(
+        y_op,
+        0,
+        max_x,
+        color="black",
+        linewidth=2
+    )
 
     ax.text(
         -1.5,
@@ -451,126 +460,98 @@ if st.button("Générer le simogramme"):
         fontweight="bold"
     )
 
+    # ===================================================
+    # GRAPH SETTINGS
+    # ===================================================
+
     ax.set_xlim(0, max_x + 2)
+
     ax.set_yticks([])
+
     ax.grid(axis="x", alpha=0.2)
+
     plt.tight_layout()
 
     # ===================================================
-    # SAFETY INIT
+    # KPI
     # ===================================================
 
-    total_operator_time = total_operator_time if "total_operator_time" in locals() else 0
-    total_machine_time = total_machine_time if "total_machine_time" in locals() else 0
-    total_wait_time = total_wait_time if "total_wait_time" in locals() else 0
-    total_ttm_time = total_ttm_time if "total_ttm_time" in locals() else 0
-    max_x = max_x if "max_x" in locals() else 0
-
-    # ===================================================
-    # CALCUL IMPACT CONTRÔLE QUALITÉ (LOGIC CORREGIDA)
-    # ===================================================
+    temps_cycle = max_x
     
-    # Tiempo perdido total por controles de calidad
-    # Por cada control: pérdida = max(0, temps_control - temps_reference_machine)
-    # Luego se divide por la frecuencia para obtener el impacto por pieza
-    
-    temps_perdu_par_piece = 0
-    
-    for qc in st.session_state.get("qc_controls", []):
-        temps_qc = qc.get("temps", 0)
-        freq_qc = qc.get("frequence", 1)
-        
-        if temps_qc > 0 and freq_qc > 0:
-            # Pérdida real por este control (no puede ser negativa)
-            perte_reelle = max(0, temps_qc - temps_reference_machine)
-            # Impacto por pieza = pérdida real / frecuencia
-            temps_perdu_par_piece += perte_reelle / freq_qc
-            
-            # Debug info (se mostrará en expansión)
-            if 'debug_qc' not in st.session_state:
-                st.session_state.debug_qc = []
-            st.session_state.debug_qc.append({
-                'nom': qc['nom'],
-                'temps_control': temps_qc,
-                'temps_ref_machine': temps_reference_machine,
-                'perte_reelle': perte_reelle,
-                'frequence': freq_qc,
-                'impact_par_piece': perte_reelle / freq_qc
-            })
+    temps_disponible = heures_travail * 3600
 
-    # ===================================================
-    # KPI CALC
-    # ===================================================
+    pieces_jour = (
+        (temps_disponible / temps_cycle)
+        * coef_repo
+        if temps_cycle > 0 else 0
+    )
 
-    temps_operateur_corrige = total_operator_time * coef_repo
-    surcout_operateur = temps_operateur_corrige - total_operator_time
+    taux_homme = (
+        total_operator_time / temps_cycle
+        if temps_cycle > 0 else 0
+    )
 
-    # Temps cycle = temps total du cycle + temps perdu par les contrôles
-    temps_cycle = max_x + surcout_operateur + temps_perdu_par_piece
-
-    # Taux Machine = Temps Machine réel (TT + TTM) / Temps Cycle
-    temps_machine_reel = total_machine_time + total_ttm_time
-    taux_machine = temps_machine_reel / temps_cycle if temps_cycle > 0 else 0
-
-    # Taux Opérateur = Temps Opérateur corrigé / Temps Cycle
-    taux_operateur = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
-
-    # Productivité
-    pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
-    pieces_jour = pieces_heure * heures_travail
-
-    # ===================================================
-    # UI KPI
-    # ===================================================
+    taux_machine = (
+        total_machine_time / temps_cycle
+        if temps_cycle > 0 else 0
+    )
 
     st.markdown("## KPI")
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-    col2.metric("Temps machine réel", f"{round(temps_machine_reel, 2)} s")
-    col3.metric("Temps opérateur corrigé", f"{round(temps_operateur_corrige, 2)} s")
-    col4.metric("Temps perdu / pièce", f"{round(temps_perdu_par_piece, 2)} s")
+    col1.metric(
+        "Temps cycle",
+        f"{round(temps_cycle, 2)} s"
+    )
 
-    col5, col6, col7, col8 = st.columns(4)
+    col2.metric(
+        "Temps machine",
+        f"{round(total_machine_time, 2)} s"
+    )
 
-    col5.metric("Taux Opérateur", f"{round(taux_operateur * 100, 1)} %")
-    col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
-    col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
-    col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
+    col3.metric(
+        "Temps opérateur",
+        f"{round(total_operator_time, 2)} s"
+    )
 
-    # Explicación detallada del impacto
-    if temps_perdu_par_piece > 0:
-        
-        with st.expander("📊 Détail du calcul d'impact des contrôles qualité"):
-            
-            st.markdown(f"**Temps de référence machine:** {temps_reference_machine} secondes")
-            st.markdown("**Formule:** Perte réelle = max(0, Temps contrôle - Temps référence machine)")
-            st.markdown("**Impact par pièce = Perte réelle / Fréquence**")
-            st.markdown("---")
-            
-            for debug in st.session_state.get('debug_qc', []):
-                st.markdown(f"**{debug['nom']}:**")
-                st.markdown(f"- Temps contrôle: {debug['temps_control']}s")
-                st.markdown(f"- Temps référence machine: {debug['temps_ref_machine']}s")
-                st.markdown(f"- Perte réelle: {debug['perte_reelle']}s")
-                st.markdown(f"- Fréquence: 1/{debug['frequence']} pièces")
-                st.markdown(f"- **Impact: +{round(debug['impact_par_piece'], 2)}s par pièce**")
-                st.markdown("---")
-            
-            st.info(f"💡 Impact total sur le temps de cycle: +{round(temps_perdu_par_piece, 2)} secondes par pièce")
-            st.info(f"📉 Réduction de productivité: de {round(3600/max_x, 1)} à {round(pieces_heure, 1)} pièces/heure")
+    col4.metric(
+        "Attente",
+        f"{round(total_wait_time, 2)} s"
+    )
+
+    col5, col6, col7 = st.columns(3)
+
+    col5.metric(
+        "Taux Homme",
+        f"{round(taux_homme * 100, 1)} %"
+    )
+
+    col6.metric(
+        "Taux Machine",
+        f"{round(taux_machine * 100, 1)} %"
+    )
+
+    col7.metric(
+        "Pièces / Jour",
+        f"{round(pieces_jour, 1)}"
+    )
 
     st.success("Simogramme généré avec succès")
-    st.pyplot(fig)
-    
-    # Sauvegarder la figure pour l'export Excel
-    fig.savefig("simogramme.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
 
-    # Limpiar debug
-    if 'debug_qc' in st.session_state:
-        del st.session_state.debug_qc
+    st.pyplot(fig)
+
+    # ===================================================
+    # SAVE IMAGE
+    # ===================================================
+
+    image_path = "simogramme.png"
+
+    fig.savefig(
+        image_path,
+        bbox_inches="tight",
+        dpi=300
+    )
 
     # ===================================================
     # EXCEL EXPORT
@@ -578,12 +559,28 @@ if st.button("Générer le simogramme"):
 
     excel_path = "simogramme.xlsx"
 
-    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+    with pd.ExcelWriter(
+        excel_path,
+        engine="openpyxl"
+    ) as writer:
 
-        edited_df.to_excel(writer, sheet_name="Données", index=False)
+        # ===================================================
+        # DATA SHEET
+        # ===================================================
+
+        edited_df.to_excel(
+            writer,
+            sheet_name="Données",
+            index=False
+        )
 
         workbook = writer.book
+
         worksheet = workbook.create_sheet("Simogramme")
+
+        # ===================================================
+        # HEADER INFOS
+        # ===================================================
 
         worksheet["A1"] = "Référence pièce"
         worksheet["B1"] = reference_piece
@@ -597,71 +594,54 @@ if st.button("Générer le simogramme"):
         worksheet["A4"] = "Coefficient rendement"
         worksheet["B4"] = coef_repo
 
-        worksheet["A5"] = "Temps référence machine"
-        worksheet["B5"] = temps_reference_machine
+        worksheet["A5"] = "Vitesse de coupe"
+        worksheet["B5"] = vitesse_coupe
 
-        worksheet["A6"] = "Date"
-        worksheet["B6"] = str(datetime.now())
+        worksheet["A6"] = "Vitesse d'avance"
+        worksheet["B6"] = vitesse_avance
 
-        worksheet["A8"] = "Temps cycle (avec contrôles)"
-        worksheet["B8"] = round(temps_cycle, 2)
+        worksheet["A5"] = "Date"
+        worksheet["B5"] = str(datetime.now())
 
-        worksheet["A9"] = "Temps machine réel"
-        worksheet["B9"] = round(temps_machine_reel, 2)
+        # ===================================================
+        # KPI
+        # ===================================================
 
-        worksheet["A10"] = "Temps opérateur corrigé"
-        worksheet["B10"] = round(temps_operateur_corrige, 2)
+        worksheet["A7"] = "Temps cycle"
+        worksheet["B7"] = round(temps_cycle, 2)
 
-        worksheet["A11"] = "Temps perdu par pièce"
-        worksheet["B11"] = round(temps_perdu_par_piece, 2)
+        worksheet["A8"] = "Temps machine"
+        worksheet["B8"] = round(total_machine_time, 2)
 
-        worksheet["A12"] = "Taux Opérateur"
-        worksheet["B12"] = round(taux_operateur * 100, 2)
+        worksheet["A9"] = "Temps opérateur"
+        worksheet["B9"] = round(total_operator_time, 2)
 
-        worksheet["A13"] = "Taux Machine"
-        worksheet["B13"] = round(taux_machine * 100, 2)
+        worksheet["A10"] = "Temps attente"
+        worksheet["B10"] = round(total_wait_time, 2)
 
-        worksheet["A14"] = "Pièces / Heure"
-        worksheet["B14"] = round(pieces_heure, 1)
+        worksheet["A11"] = "Taux Homme"
+        worksheet["B11"] = round(taux_homme * 100, 2)
 
-        worksheet["A15"] = "Pièces / Jour"
-        worksheet["B15"] = round(pieces_jour, 1)
+        worksheet["A12"] = "Taux Machine"
+        worksheet["B12"] = round(taux_machine * 100, 2)
 
-        # Détail des contrôles qualité con la nueva lógica
-        worksheet["A17"] = "Détail contrôles qualité (avec logique de perte réelle)"
-        worksheet["A18"] = "Nom contrôle"
-        worksheet["B18"] = "Temps contrôle (s)"
-        worksheet["C18"] = "Temps réf machine (s)"
-        worksheet["D18"] = "Perte réelle (s)"
-        worksheet["E18"] = "Fréquence"
-        worksheet["F18"] = "Impact (s/pièce)"
+        worksheet["A13"] = "Pièces / Jour"
+        worksheet["B13"] = round(pieces_jour, 1)
 
-        row = 19
-        for qc in st.session_state.get("qc_controls", []):
-            worksheet[f"A{row}"] = qc["nom"]
-            worksheet[f"B{row}"] = qc["temps"]
-            worksheet[f"C{row}"] = temps_reference_machine
-            perte = max(0, qc["temps"] - temps_reference_machine)
-            worksheet[f"D{row}"] = round(perte, 2)
-            worksheet[f"E{row}"] = qc["frequence"]
-            impact = perte / qc["frequence"] if qc["frequence"] > 0 else 0
-            worksheet[f"F{row}"] = round(impact, 2)
-            row += 1
+        # ===================================================
+        # IMAGE
+        # ===================================================
 
-        # Ajouter l'image du simogramme
-        image_path = os.path.join(os.getcwd(), "simogramme.png")
+        img = Image(image_path)
 
-        if os.path.exists(image_path):
-            img = XLImage(image_path)
-            img.width = 800
-            img.height = 300
-            worksheet.add_image(img, "H2")
+        worksheet.add_image(img)
 
     # ===================================================
     # DOWNLOAD
     # ===================================================
 
     with open(excel_path, "rb") as f:
+
         st.download_button(
             "📥 Télécharger Excel",
             f,
