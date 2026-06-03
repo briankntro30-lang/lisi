@@ -125,7 +125,7 @@ def load_configurations():
     c = conn.cursor()
     
     try:
-        c.execute('SELECT id, date, reference_piece, numero_machine, pdc FROM configurations ORDER BY date DESC')
+        c.execute('SELECT id, date, reference_piece, numero_machine FROM configurations ORDER BY date DESC')
         rows = c.fetchall()
     except sqlite3.OperationalError:
         rows = []
@@ -385,10 +385,53 @@ else:
     edited_df = pd.DataFrame()
 
 # ===================================================
+# BOUTONS PRINCIPAUX
+# ===================================================
+
+col_button1, col_button2, col_button3 = st.columns([1, 1, 2])
+
+with col_button1:
+    # Bouton pour sauvegarder la configuration
+    if st.button("💾 Sauvegarder la configuration", use_container_width=True):
+        if edited_df.empty:
+            st.error("Veuillez ajouter des données dans les tableaux avant de sauvegarder")
+        else:
+            # Sauvegarder les données des tableaux par machine
+            donnees_tableau = {}
+            for m in st.session_state["machines"]:
+                if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
+                    donnees_tableau[m] = st.session_state[m].to_dict('records')
+            
+            config_data = {
+                'date': str(datetime.now()),
+                'reference_piece': reference_piece,
+                'numero_machine': numéro_machine,
+                'pdc': pdc,
+                'vitesse_coupe': vitesse_coupe,
+                'vitesse_avance': vitesse_avance,
+                'coef_habilete': coef_habilete,
+                'coef_activite': coef_activite,
+                'coef_conditions': coef_conditions,
+                'coef_stabilite': coef_stabilite,
+                'coef_ja_total': coef_ja_total,
+                'coef_repo': coef_repo,
+                'heures_travail': heures_travail,
+                'machines': str(st.session_state["machines"]),
+                'donnees_tableau': json.dumps(donnees_tableau)
+            }
+            
+            save_configuration(config_data)
+            st.success("Configuration sauvegardée avec succès dans l'historique!")
+
+with col_button2:
+    # Bouton pour générer le simogramme
+    generer = st.button("🎯 Générer le simogramme", use_container_width=True)
+
+# ===================================================
 # GENERATE SIMOGRAMME
 # ===================================================
 
-if st.button("Générer le simogramme"):
+if generer:
     if edited_df.empty:
         st.error("Veuillez ajouter des données dans les tableaux")
         st.stop()
@@ -585,37 +628,6 @@ if st.button("Générer le simogramme"):
     fig.savefig(image_path, bbox_inches="tight", dpi=300)
     
     # ===================================================
-    # SAUVEGARDE BDD
-    # ===================================================
-    
-    # Sauvegarder les données des tableaux par machine
-    donnees_tableau = {}
-    for m in st.session_state["machines"]:
-        if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
-            donnees_tableau[m] = st.session_state[m].to_dict('records')
-    
-    config_data = {
-        'date': str(datetime.now()),
-        'reference_piece': reference_piece,
-        'numero_machine': numéro_machine,
-        'pdc': pdc,
-        'vitesse_coupe': vitesse_coupe,
-        'vitesse_avance': vitesse_avance,
-        'coef_habilete': coef_habilete,
-        'coef_activite': coef_activite,
-        'coef_conditions': coef_conditions,
-        'coef_stabilite': coef_stabilite,
-        'coef_ja_total': coef_ja_total,
-        'coef_repo': coef_repo,
-        'heures_travail': heures_travail,
-        'machines': str(st.session_state["machines"]),
-        'donnees_tableau': json.dumps(donnees_tableau)
-    }
-    
-    save_configuration(config_data)
-    st.info("Configuration sauvegardée dans l'historique!")
-    
-    # ===================================================
     # EXCEL EXPORT
     # ===================================================
     
@@ -674,6 +686,7 @@ if st.button("Générer le simogramme"):
         img = Image(image_path)
         worksheet.add_image(img, 'D1')
     
+    # Bouton de téléchargement Excel
     with open(excel_path, "rb") as f:
         st.download_button(
             "📥 Télécharger Excel",
@@ -693,7 +706,7 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
     
     if configurations:
         for config in configurations:
-            config_id, date, ref_piece, num_machine, pdc_val = config
+            config_id, date, ref_piece, num_machine = config
             
             col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
             
