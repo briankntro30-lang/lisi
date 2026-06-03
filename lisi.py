@@ -164,8 +164,23 @@ with st.sidebar:
     vitesse_coupe = st.text_input("Vitesse de coupe")
     vitesse_avance = st.text_input("Vitesse d'avance")
     
-    st.markdown("## Coefficient JA (Jugement d'Allure)")
+    st.markdown("## Contrôle qualité")
     
+    temps_controle = st.number_input(
+        "Temps contrôle (s)",
+        min_value=0.0,
+        value=0.0,
+        step=1.0
+    )
+    
+    frequence_controle = st.number_input(
+        "Fréquence contrôle (pièces)",
+        min_value=1,
+        value=10,
+        step=1
+    )
+    
+    st.markdown("## Coefficient JA (Jugement d'Allure)")
     
     coef_habilete = st.number_input(
         "Coefficient d'habileté",
@@ -226,6 +241,8 @@ with st.sidebar:
         step=0.5
     )
     
+    st.markdown("---")
+    
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
     
@@ -282,25 +299,34 @@ for m in st.session_state["machines"]:
         use_container_width=True
     )
     
+    # Auto-calcul du début
     for i in range(1, len(df)):
-        prev_debut = float(df.loc[i-1, "Début"])
-        prev_duree = float(df.loc[i-1, "Durée"])
-        auto_debut = prev_debut + prev_duree
-        
-        if (df.loc[i, "Début"] == 0 or pd.isna(df.loc[i, "Début"])):
-            df.loc[i, "Début"] = auto_debut
+        if pd.notna(df.loc[i-1, "Début"]) and pd.notna(df.loc[i-1, "Durée"]):
+            prev_debut = float(df.loc[i-1, "Début"])
+            prev_duree = float(df.loc[i-1, "Durée"])
+            auto_debut = prev_debut + prev_duree
+            
+            if (df.loc[i, "Début"] == 0 or pd.isna(df.loc[i, "Début"])):
+                df.loc[i, "Début"] = auto_debut
     
     df["Fin"] = df["Début"] + df["Durée"]
     df["Sys"] = m
     dfs.append(df)
 
-edited_df = pd.concat(dfs, ignore_index=True)
+if dfs:
+    edited_df = pd.concat(dfs, ignore_index=True)
+else:
+    edited_df = pd.DataFrame()
 
 # ===================================================
 # GENERATE SIMOGRAMME
 # ===================================================
 
 if st.button("Générer le simogramme"):
+    if edited_df.empty:
+        st.error("Veuillez ajouter des données dans les tableaux")
+        st.stop()
+    
     fig, ax = plt.subplots(figsize=(18, 6))
     
     machines = st.session_state["machines"]
@@ -524,42 +550,48 @@ if st.button("Générer le simogramme"):
         worksheet["A6"] = "Date"
         worksheet["B6"] = str(datetime.now())
         
+        # Contrôle qualité
+        worksheet["A7"] = "Temps contrôle"
+        worksheet["B7"] = temps_controle
+        worksheet["A8"] = "Fréquence contrôle"
+        worksheet["B8"] = frequence_controle
+        
         # Coefficients JA
-        worksheet["A7"] = "Coefficient habileté"
-        worksheet["B7"] = coef_habilete
-        worksheet["A8"] = "Coefficient activité"
-        worksheet["B8"] = coef_activite
-        worksheet["A9"] = "Coefficient conditions"
-        worksheet["B9"] = coef_conditions
-        worksheet["A10"] = "Coefficient stabilité"
-        worksheet["B10"] = coef_stabilite
-        worksheet["A11"] = "Coefficient JA total"
-        worksheet["B11"] = round(coef_ja_total, 2)
-        worksheet["A12"] = "Coefficient rendement"
-        worksheet["B12"] = coef_repo
-        worksheet["A13"] = "Heures travail/jour"
-        worksheet["B13"] = heures_travail
+        worksheet["A9"] = "Coefficient habileté"
+        worksheet["B9"] = coef_habilete
+        worksheet["A10"] = "Coefficient activité"
+        worksheet["B10"] = coef_activite
+        worksheet["A11"] = "Coefficient conditions"
+        worksheet["B11"] = coef_conditions
+        worksheet["A12"] = "Coefficient stabilité"
+        worksheet["B12"] = coef_stabilite
+        worksheet["A13"] = "Coefficient JA total"
+        worksheet["B13"] = round(coef_ja_total, 2)
+        worksheet["A14"] = "Coefficient rendement"
+        worksheet["B14"] = coef_repo
+        worksheet["A15"] = "Heures travail/jour"
+        worksheet["B15"] = heures_travail
         
         # KPI
-        worksheet["A14"] = "Temps cycle"
-        worksheet["B14"] = round(temps_cycle, 2)
-        worksheet["A15"] = "Temps machine"
-        worksheet["B15"] = round(total_machine_time, 2)
-        worksheet["A16"] = "Temps opérateur"
-        worksheet["B16"] = round(total_operator_time, 2)
-        worksheet["A17"] = "Temps attente"
-        worksheet["B17"] = round(total_wait_time, 2)
-        worksheet["A18"] = "Taux Homme"
-        worksheet["B18"] = round(taux_homme * 100, 2)
-        worksheet["A19"] = "Taux Machine"
-        worksheet["B19"] = round(taux_machine * 100, 2)
-        worksheet["A20"] = "Pièces / Heure"
-        worksheet["B20"] = round(pieces_heure, 1)
-        worksheet["A21"] = "Pièces / Jour"
-        worksheet["B21"] = round(pieces_jour, 1)
+        worksheet["A16"] = "Temps cycle"
+        worksheet["B16"] = round(temps_cycle, 2)
+        worksheet["A17"] = "Temps machine"
+        worksheet["B17"] = round(total_machine_time, 2)
+        worksheet["A18"] = "Temps opérateur"
+        worksheet["B18"] = round(total_operator_time, 2)
+        worksheet["A19"] = "Temps attente"
+        worksheet["B19"] = round(total_wait_time, 2)
+        worksheet["A20"] = "Taux Homme"
+        worksheet["B20"] = round(taux_homme * 100, 2)
+        worksheet["A21"] = "Taux Machine"
+        worksheet["B21"] = round(taux_machine * 100, 2)
+        worksheet["A22"] = "Pièces / Heure"
+        worksheet["B22"] = round(pieces_heure, 1)
+        worksheet["A23"] = "Pièces / Jour"
+        worksheet["B23"] = round(pieces_jour, 1)
         
         img = Image(image_path)
-        worksheet.add_image(img, 'C1')
+        worksheet.add_image(img, 'D1')
     
     # ===================================================
     # SAUVEGARDE BDD
