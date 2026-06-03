@@ -165,7 +165,7 @@ with st.sidebar:
     vitesse_avance = st.text_input("Vitesse d'avance")
     
     st.markdown("## Coefficient JA (Jugement d'Allure)")
-    st.info("Les coefficients sont des valeurs entre 0 et 1, la somme sera ajoutée à 1")
+    
     
     coef_habilete = st.number_input(
         "Coefficient d'habileté",
@@ -225,24 +225,6 @@ with st.sidebar:
         value=7.0,
         step=0.5
     )
-    
-    st.markdown("## Contrôle qualité")
-    
-    temps_controle = st.number_input(
-        "Temps contrôle (s)",
-        min_value=0.0,
-        value=0.0,
-        step=1.0
-    )
-    
-    frequence_controle = st.number_input(
-        "Fréquence contrôle (pièces)",
-        min_value=1,
-        value=10,
-        step=1
-    )
-    
-    st.markdown("---")
     
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
