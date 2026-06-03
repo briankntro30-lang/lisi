@@ -365,6 +365,9 @@ for m in st.session_state["machines"]:
         use_container_width=True
     )
     
+    # Sauvegarder automatiquement les modifications dans session_state
+    st.session_state[m] = df
+    
     # Auto-calcul du début
     for i in range(1, len(df)):
         if pd.notna(df.loc[i-1, "Début"]) and pd.notna(df.loc[i-1, "Durée"]):
@@ -385,53 +388,10 @@ else:
     edited_df = pd.DataFrame()
 
 # ===================================================
-# BOUTONS PRINCIPAUX
+# BOUTON POUR GÉNÉRER
 # ===================================================
 
-col_button1, col_button2, col_button3 = st.columns([1, 1, 2])
-
-with col_button1:
-    # Bouton pour sauvegarder la configuration
-    if st.button("💾 Sauvegarder la configuration", use_container_width=True):
-        if edited_df.empty:
-            st.error("Veuillez ajouter des données dans les tableaux avant de sauvegarder")
-        else:
-            # Sauvegarder les données des tableaux par machine
-            donnees_tableau = {}
-            for m in st.session_state["machines"]:
-                if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
-                    donnees_tableau[m] = st.session_state[m].to_dict('records')
-            
-            config_data = {
-                'date': str(datetime.now()),
-                'reference_piece': reference_piece,
-                'numero_machine': numéro_machine,
-                'pdc': pdc,
-                'vitesse_coupe': vitesse_coupe,
-                'vitesse_avance': vitesse_avance,
-                'coef_habilete': coef_habilete,
-                'coef_activite': coef_activite,
-                'coef_conditions': coef_conditions,
-                'coef_stabilite': coef_stabilite,
-                'coef_ja_total': coef_ja_total,
-                'coef_repo': coef_repo,
-                'heures_travail': heures_travail,
-                'machines': str(st.session_state["machines"]),
-                'donnees_tableau': json.dumps(donnees_tableau)
-            }
-            
-            save_configuration(config_data)
-            st.success("Configuration sauvegardée avec succès dans l'historique!")
-
-with col_button2:
-    # Bouton pour générer le simogramme
-    generer = st.button("🎯 Générer le simogramme", use_container_width=True)
-
-# ===================================================
-# GENERATE SIMOGRAMME
-# ===================================================
-
-if generer:
+if st.button("🎯 Générer le simogramme", use_container_width=True):
     if edited_df.empty:
         st.error("Veuillez ajouter des données dans les tableaux")
         st.stop()
@@ -686,14 +646,50 @@ if generer:
         img = Image(image_path)
         worksheet.add_image(img, 'D1')
     
-    # Bouton de téléchargement Excel
-    with open(excel_path, "rb") as f:
-        st.download_button(
-            "📥 Télécharger Excel",
-            f,
-            file_name="simogramme.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    # ===================================================
+    # BOUTONS TÉLÉCHARGEMENT ET SAUVEGARDE
+    # ===================================================
+    
+    col_buttons1, col_buttons2 = st.columns(2)
+    
+    with col_buttons1:
+        with open(excel_path, "rb") as f:
+            st.download_button(
+                "📥 Télécharger Excel",
+                f,
+                file_name="simogramme.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+    
+    with col_buttons2:
+        if st.button("💾 Sauvegarder cette configuration", use_container_width=True):
+            # Sauvegarder les données des tableaux par machine
+            donnees_tableau = {}
+            for m in st.session_state["machines"]:
+                if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
+                    donnees_tableau[m] = st.session_state[m].to_dict('records')
+            
+            config_data = {
+                'date': str(datetime.now()),
+                'reference_piece': reference_piece,
+                'numero_machine': numéro_machine,
+                'pdc': pdc,
+                'vitesse_coupe': vitesse_coupe,
+                'vitesse_avance': vitesse_avance,
+                'coef_habilete': coef_habilete,
+                'coef_activite': coef_activite,
+                'coef_conditions': coef_conditions,
+                'coef_stabilite': coef_stabilite,
+                'coef_ja_total': coef_ja_total,
+                'coef_repo': coef_repo,
+                'heures_travail': heures_travail,
+                'machines': str(st.session_state["machines"]),
+                'donnees_tableau': json.dumps(donnees_tableau)
+            }
+            
+            save_configuration(config_data)
+            st.success("✅ Configuration sauvegardée avec succès dans l'historique!")
 
 # ===================================================
 # HISTORIQUE
@@ -740,7 +736,7 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
 
 # Nettoyer l'indicateur de chargement si présent
 if "config_loaded" in st.session_state:
-    st.success("Configuration chargée! Vous pouvez maintenant générer le simogramme.")
+    st.success("✅ Configuration chargée! Les tableaux ont été remplis avec vos données sauvegardées.")
     if st.button("OK"):
         st.session_state["config_loaded"] = False
         st.rerun()
