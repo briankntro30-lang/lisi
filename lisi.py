@@ -5,7 +5,7 @@ from matplotlib.patches import Rectangle
 from openpyxl.drawing.image import Image
 from datetime import datetime
 import sqlite3
-import os
+import json
 
 # ===================================================
 # CONFIG
@@ -81,7 +81,8 @@ def init_database():
                   temps_controle REAL,
                   frequence_controle INTEGER,
                   machines TEXT,
-                  donnees TEXT)''')
+                  donnees_tableau TEXT,
+                  simogramme_image BLOB)''')
     
     conn.commit()
     conn.close()
@@ -95,14 +96,14 @@ def save_configuration(data):
                  (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
                   vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
                   coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
-                  temps_controle, frequence_controle, machines, donnees)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  temps_controle, frequence_controle, machines, donnees_tableau, simogramme_image)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (data['date'], data['reference_piece'], data['numero_machine'], 
                data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
                data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
                data['heures_travail'], data['temps_controle'], data['frequence_controle'],
-               data['machines'], data['donnees']))
+               data['machines'], data['donnees_tableau'], data['simogramme_image']))
     
     conn.commit()
     conn.close()
@@ -112,11 +113,32 @@ def load_configurations():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('SELECT * FROM configurations ORDER BY date DESC')
+    c.execute('SELECT id, date, reference_piece, numero_machine, pdc, donnees_tableau FROM configurations ORDER BY date DESC')
     rows = c.fetchall()
     
     conn.close()
     return rows
+
+def load_full_configuration(config_id):
+    """Charge une configuration complète par ID"""
+    conn = sqlite3.connect('simogramme_data.db')
+    c = conn.cursor()
+    
+    c.execute('SELECT * FROM configurations WHERE id = ?', (config_id,))
+    row = c.fetchone()
+    
+    conn.close()
+    return row
+
+def delete_configuration(config_id):
+    """Supprime une configuration"""
+    conn = sqlite3.connect('simogramme_data.db')
+    c = conn.cursor()
+    
+    c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
+    
+    conn.commit()
+    conn.close()
 
 # Initialiser la base de données
 init_database()
@@ -149,6 +171,45 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 # ===================================================
+# CHARGER CONFIGURATION DEPUIS HISTORIQUE
+# ===================================================
+
+def load_saved_configuration(config_id):
+    """Charge une configuration sauvegardée et restaure toutes les données"""
+    config = load_full_configuration(config_id)
+    
+    if config:
+        # Restaurer les variables de session
+        st.session_state["loaded_config_id"] = config[0]
+        st.session_state["reference_piece"] = config[2]
+        st.session_state["numero_machine"] = config[3]
+        st.session_state["pdc"] = config[4]
+        st.session_state["vitesse_coupe"] = config[5]
+        st.session_state["vitesse_avance"] = config[6]
+        st.session_state["coef_habilete"] = config[7]
+        st.session_state["coef_activite"] = config[8]
+        st.session_state["coef_conditions"] = config[9]
+        st.session_state["coef_stabilite"] = config[10]
+        st.session_state["coef_repo"] = config[12]
+        st.session_state["heures_travail"] = config[13]
+        st.session_state["temps_controle"] = config[14]
+        st.session_state["frequence_controle"] = config[15]
+        st.session_state["machines"] = eval(config[16])
+        
+        # Restaurer les données des tableaux
+        donnees_tableau = json.loads(config[17])
+        
+        # Créer les dataframes pour chaque machine
+        for machine, df_data in donnees_tableau.items():
+            st.session_state[machine] = pd.DataFrame(df_data)
+        
+        st.session_state["config_loaded"] = True
+        st.success("Configuration chargée avec succès!")
+        return True
+    
+    return False
+
+# ===================================================
 # SIDEBAR
 # ===================================================
 
@@ -158,25 +219,31 @@ with st.sidebar:
     
     st.markdown("## Informations production")
     
-    reference_piece = st.text_input("Référence pièce")
-    numéro_machine = st.text_input("Numéro de la machine")
-    pdc = st.text_input("PDC")
-    vitesse_coupe = st.text_input("Vitesse de coupe")
-    vitesse_avance = st.text_input("Vitesse d'avance")
+    # Utiliser session_state pour persister les valeurs
+    reference_piece = st.text_input("Référence pièce", 
+                                    value=st.session_state.get("reference_piece", ""))
+    numéro_machine = st.text_input("Numéro de la machine",
+                                   value=st.session_state.get("numero_machine", ""))
+    pdc = st.text_input("PDC",
+                       value=st.session_state.get("pdc", ""))
+    vitesse_coupe = st.text_input("Vitesse de coupe",
+                                  value=st.session_state.get("vitesse_coupe", ""))
+    vitesse_avance = st.text_input("Vitesse d'avance",
+                                   value=st.session_state.get("vitesse_avance", ""))
     
     st.markdown("## Contrôle qualité")
     
     temps_controle = st.number_input(
         "Temps contrôle (s)",
         min_value=0.0,
-        value=0.0,
+        value=st.session_state.get("temps_controle", 0.0),
         step=1.0
     )
     
     frequence_controle = st.number_input(
         "Fréquence contrôle (pièces)",
         min_value=1,
-        value=10,
+        value=st.session_state.get("frequence_controle", 10),
         step=1
     )
     
@@ -186,7 +253,7 @@ with st.sidebar:
         "Coefficient d'habileté",
         min_value=0.0,
         max_value=1.0,
-        value=0.0,
+        value=st.session_state.get("coef_habilete", 0.0),
         step=0.05,
         help="Habileté de l'opérateur"
     )
@@ -195,7 +262,7 @@ with st.sidebar:
         "Coefficient d'activité",
         min_value=0.0,
         max_value=1.0,
-        value=0.0,
+        value=st.session_state.get("coef_activite", 0.0),
         step=0.05,
         help="Activité de l'opérateur"
     )
@@ -204,7 +271,7 @@ with st.sidebar:
         "Coefficient des conditions de travail",
         min_value=0.0,
         max_value=1.0,
-        value=0.0,
+        value=st.session_state.get("coef_conditions", 0.0),
         step=0.05,
         help="Conditions de travail"
     )
@@ -213,7 +280,7 @@ with st.sidebar:
         "Coefficient de stabilité",
         min_value=0.0,
         max_value=1.0,
-        value=0.0,
+        value=st.session_state.get("coef_stabilite", 0.0),
         step=0.05,
         help="Stabilité du processus"
     )
@@ -228,7 +295,7 @@ with st.sidebar:
         "Coefficient de rendement opérateur",
         min_value=1.00,
         max_value=5.00,
-        value=1.00,
+        value=st.session_state.get("coef_repo", 1.00),
         step=0.05,
         help="Coefficient supérieur à 1"
     )
@@ -237,7 +304,7 @@ with st.sidebar:
         "Heures de travail / jour",
         min_value=1.0,
         max_value=24.0,
-        value=7.0,
+        value=st.session_state.get("heures_travail", 7.0),
         step=0.5
     )
     
@@ -281,16 +348,20 @@ for m in st.session_state["machines"]:
         else:
             st.write("")
     
-    default_df = pd.DataFrame({
-        "Etape": [""],
-        "Début": [0.0],
-        "Durée": [0.0],
-        "TT": [False],
-        "TM": [False],
-        "TTM": [False],
-        "TR": [False],
-        "TF": [False],
-    })
+    # Récupérer les données existantes ou créer un nouveau dataframe
+    if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
+        default_df = st.session_state[m]
+    else:
+        default_df = pd.DataFrame({
+            "Etape": [""],
+            "Début": [0.0],
+            "Durée": [0.0],
+            "TT": [False],
+            "TM": [False],
+            "TTM": [False],
+            "TR": [False],
+            "TF": [False],
+        })
     
     df = st.data_editor(
         default_df,
@@ -526,6 +597,44 @@ if st.button("Générer le simogramme"):
     image_path = "simogramme.png"
     fig.savefig(image_path, bbox_inches="tight", dpi=300)
     
+    # Lire l'image pour la sauvegarder en BLOB
+    with open(image_path, 'rb') as img_file:
+        image_blob = img_file.read()
+    
+    # ===================================================
+    # SAUVEGARDE BDD
+    # ===================================================
+    
+    # Sauvegarder les données des tableaux par machine
+    donnees_tableau = {}
+    for m in st.session_state["machines"]:
+        if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
+            donnees_tableau[m] = st.session_state[m].to_dict('records')
+    
+    config_data = {
+        'date': str(datetime.now()),
+        'reference_piece': reference_piece,
+        'numero_machine': numéro_machine,
+        'pdc': pdc,
+        'vitesse_coupe': vitesse_coupe,
+        'vitesse_avance': vitesse_avance,
+        'coef_habilete': coef_habilete,
+        'coef_activite': coef_activite,
+        'coef_conditions': coef_conditions,
+        'coef_stabilite': coef_stabilite,
+        'coef_ja_total': coef_ja_total,
+        'coef_repo': coef_repo,
+        'heures_travail': heures_travail,
+        'temps_controle': temps_controle,
+        'frequence_controle': frequence_controle,
+        'machines': str(st.session_state["machines"]),
+        'donnees_tableau': json.dumps(donnees_tableau),
+        'simogramme_image': image_blob
+    }
+    
+    save_configuration(config_data)
+    st.info("Configuration sauvegardée dans l'historique!")
+    
     # ===================================================
     # EXCEL EXPORT
     # ===================================================
@@ -550,13 +659,11 @@ if st.button("Générer le simogramme"):
         worksheet["A6"] = "Date"
         worksheet["B6"] = str(datetime.now())
         
-        # Contrôle qualité
         worksheet["A7"] = "Temps contrôle"
         worksheet["B7"] = temps_controle
         worksheet["A8"] = "Fréquence contrôle"
         worksheet["B8"] = frequence_controle
         
-        # Coefficients JA
         worksheet["A9"] = "Coefficient habileté"
         worksheet["B9"] = coef_habilete
         worksheet["A10"] = "Coefficient activité"
@@ -572,7 +679,6 @@ if st.button("Générer le simogramme"):
         worksheet["A15"] = "Heures travail/jour"
         worksheet["B15"] = heures_travail
         
-        # KPI
         worksheet["A16"] = "Temps cycle"
         worksheet["B16"] = round(temps_cycle, 2)
         worksheet["A17"] = "Temps machine"
@@ -593,36 +699,6 @@ if st.button("Générer le simogramme"):
         img = Image(image_path)
         worksheet.add_image(img, 'D1')
     
-    # ===================================================
-    # SAUVEGARDE BDD
-    # ===================================================
-    
-    config_data = {
-        'date': str(datetime.now()),
-        'reference_piece': reference_piece,
-        'numero_machine': numéro_machine,
-        'pdc': pdc,
-        'vitesse_coupe': vitesse_coupe,
-        'vitesse_avance': vitesse_avance,
-        'coef_habilete': coef_habilete,
-        'coef_activite': coef_activite,
-        'coef_conditions': coef_conditions,
-        'coef_stabilite': coef_stabilite,
-        'coef_ja_total': coef_ja_total,
-        'coef_repo': coef_repo,
-        'heures_travail': heures_travail,
-        'temps_controle': temps_controle,
-        'frequence_controle': frequence_controle,
-        'machines': str(st.session_state["machines"]),
-        'donnees': edited_df.to_json()
-    }
-    
-    save_configuration(config_data)
-    
-    # ===================================================
-    # DOWNLOAD
-    # ===================================================
-    
     with open(excel_path, "rb") as f:
         st.download_button(
             "📥 Télécharger Excel",
@@ -641,15 +717,28 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
     configurations = load_configurations()
     
     if configurations:
-        df_history = pd.DataFrame(configurations, 
-                                  columns=['ID', 'Date', 'Référence', 'Machine', 'PDC', 
-                                          'Vitesse coupe', 'Vitesse avance', 'Habilité', 
-                                          'Activité', 'Conditions', 'Stabilité', 'JA Total',
-                                          'Repo', 'Heures', 'Temps contrôle', 'Fréquence',
-                                          'Machines', 'Données'])
-        
-        st.dataframe(df_history[['Date', 'Référence', 'Machine', 'JA Total', 'Repo']], 
-                    use_container_width=True)
+        for config in configurations:
+            config_id, date, ref_piece, num_machine, pdc_val, _ = config
+            
+            col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
+            
+            with col1:
+                st.write(f"**Date:** {date}")
+            with col2:
+                st.write(f"**Référence:** {ref_piece}")
+            with col3:
+                st.write(f"**Machine:** {num_machine}")
+            with col4:
+                if st.button(f"Charger", key=f"load_{config_id}"):
+                    if load_saved_configuration(config_id):
+                        st.session_state["show_history"] = False
+                        st.rerun()
+            with col5:
+                if st.button(f"🗑️", key=f"del_{config_id}"):
+                    delete_configuration(config_id)
+                    st.rerun()
+            
+            st.divider()
         
         if st.button("Fermer l'historique"):
             st.session_state["show_history"] = False
@@ -660,3 +749,10 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
         if st.button("Fermer"):
             st.session_state["show_history"] = False
             st.rerun()
+
+# Nettoyer l'indicateur de chargement si présent
+if "config_loaded" in st.session_state:
+    st.success("Configuration chargée! Vous pouvez maintenant générer le simogramme.")
+    if st.button("OK"):
+        st.session_state["config_loaded"] = False
+        st.rerun()
