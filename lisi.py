@@ -213,7 +213,7 @@ def load_saved_configuration(config_id):
         
         # Créer les dataframes pour chaque machine
         for machine, df_data in donnees_tableau.items():
-            st.session_state[machine] = pd.DataFrame(df_data)
+            st.session_state[f"df_{machine}"] = pd.DataFrame(df_data)
         
         st.session_state["config_loaded"] = True
         return True
@@ -337,15 +337,16 @@ for m in st.session_state["machines"]:
         if m != "M1":
             if st.button("🗑️", key=f"del_{m}"):
                 st.session_state["machines"].remove(m)
-                if m in st.session_state:
-                    del st.session_state[m]
+                if f"df_{m}" in st.session_state:
+                    del st.session_state[f"df_{m}"]
                 st.rerun()
         else:
             st.write("")
     
     # Récupérer les données existantes ou créer un nouveau dataframe
-    if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
-        default_df = st.session_state[m]
+    df_key = f"df_{m}"
+    if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
+        default_df = st.session_state[df_key]
     else:
         default_df = pd.DataFrame({
             "Etape": [""],
@@ -361,7 +362,7 @@ for m in st.session_state["machines"]:
     df = st.data_editor(
         default_df,
         num_rows="dynamic",
-        key=m,
+        key=f"editor_{m}",
         use_container_width=True
     )
     
@@ -378,8 +379,8 @@ for m in st.session_state["machines"]:
     df["Fin"] = df["Début"] + df["Durée"]
     df["Sys"] = m
     
-    # Mettre à jour session_state avec les données modifiées
-    st.session_state[m] = df
+    # Stocker le dataframe modifié dans session_state avec une clé unique
+    st.session_state[df_key] = df
     
     dfs.append(df)
 
@@ -668,8 +669,9 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
             # Sauvegarder les données des tableaux par machine
             donnees_tableau = {}
             for m in st.session_state["machines"]:
-                if m in st.session_state and isinstance(st.session_state[m], pd.DataFrame):
-                    donnees_tableau[m] = st.session_state[m].to_dict('records')
+                df_key = f"df_{m}"
+                if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
+                    donnees_tableau[m] = st.session_state[df_key].to_dict('records')
             
             config_data = {
                 'date': str(datetime.now()),
