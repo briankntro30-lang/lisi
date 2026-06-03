@@ -365,9 +365,6 @@ for m in st.session_state["machines"]:
         use_container_width=True
     )
     
-    # Sauvegarder automatiquement les modifications dans session_state
-    st.session_state[m] = df
-    
     # Auto-calcul du début
     for i in range(1, len(df)):
         if pd.notna(df.loc[i-1, "Début"]) and pd.notna(df.loc[i-1, "Durée"]):
@@ -380,6 +377,10 @@ for m in st.session_state["machines"]:
     
     df["Fin"] = df["Début"] + df["Durée"]
     df["Sys"] = m
+    
+    # Mettre à jour session_state avec les données modifiées
+    st.session_state[m] = df
+    
     dfs.append(df)
 
 if dfs:
