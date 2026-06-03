@@ -62,27 +62,39 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    # Table des configurations
-    c.execute('''CREATE TABLE IF NOT EXISTS configurations
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  date TEXT,
-                  reference_piece TEXT,
-                  numero_machine TEXT,
-                  pdc TEXT,
-                  vitesse_coupe TEXT,
-                  vitesse_avance TEXT,
-                  coef_habilete REAL,
-                  coef_activite REAL,
-                  coef_conditions REAL,
-                  coef_stabilite REAL,
-                  coef_ja_total REAL,
-                  coef_repo REAL,
-                  heures_travail REAL,
-                  temps_controle REAL,
-                  frequence_controle INTEGER,
-                  machines TEXT,
-                  donnees_tableau TEXT,
-                  simogramme_image BLOB)''')
+    # Vérifier si la colonne donnees_tableau existe, sinon recréer la table
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='configurations'")
+    table_exists = c.fetchone()
+    
+    if table_exists:
+        # Vérifier les colonnes existantes
+        c.execute("PRAGMA table_info(configurations)")
+        columns = [col[1] for col in c.fetchall()]
+        
+        if 'donnees_tableau' not in columns:
+            # Supprimer l'ancienne table et recréer
+            c.execute("DROP TABLE configurations")
+            table_exists = False
+    
+    if not table_exists:
+        # Créer la nouvelle table
+        c.execute('''CREATE TABLE configurations
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      date TEXT,
+                      reference_piece TEXT,
+                      numero_machine TEXT,
+                      pdc TEXT,
+                      vitesse_coupe TEXT,
+                      vitesse_avance TEXT,
+                      coef_habilete REAL,
+                      coef_activite REAL,
+                      coef_conditions REAL,
+                      coef_stabilite REAL,
+                      coef_ja_total REAL,
+                      coef_repo REAL,
+                      heures_travail REAL,
+                      machines TEXT,
+                      donnees_tableau TEXT)''')
     
     conn.commit()
     conn.close()
@@ -96,14 +108,13 @@ def save_configuration(data):
                  (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
                   vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
                   coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
-                  temps_controle, frequence_controle, machines, donnees_tableau, simogramme_image)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  machines, donnees_tableau)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (data['date'], data['reference_piece'], data['numero_machine'], 
                data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
                data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
-               data['heures_travail'], data['temps_controle'], data['frequence_controle'],
-               data['machines'], data['donnees_tableau'], data['simogramme_image']))
+               data['heures_travail'], data['machines'], data['donnees_tableau']))
     
     conn.commit()
     conn.close()
@@ -113,8 +124,11 @@ def load_configurations():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('SELECT id, date, reference_piece, numero_machine, pdc, donnees_tableau FROM configurations ORDER BY date DESC')
-    rows = c.fetchall()
+    try:
+        c.execute('SELECT id, date, reference_piece, numero_machine, pdc FROM configurations ORDER BY date DESC')
+        rows = c.fetchall()
+    except sqlite3.OperationalError:
+        rows = []
     
     conn.close()
     return rows
@@ -192,19 +206,16 @@ def load_saved_configuration(config_id):
         st.session_state["coef_stabilite"] = config[10]
         st.session_state["coef_repo"] = config[12]
         st.session_state["heures_travail"] = config[13]
-        st.session_state["temps_controle"] = config[14]
-        st.session_state["frequence_controle"] = config[15]
-        st.session_state["machines"] = eval(config[16])
+        st.session_state["machines"] = eval(config[14])
         
         # Restaurer les données des tableaux
-        donnees_tableau = json.loads(config[17])
+        donnees_tableau = json.loads(config[15])
         
         # Créer les dataframes pour chaque machine
         for machine, df_data in donnees_tableau.items():
             st.session_state[machine] = pd.DataFrame(df_data)
         
         st.session_state["config_loaded"] = True
-        st.success("Configuration chargée avec succès!")
         return True
     
     return False
@@ -230,22 +241,6 @@ with st.sidebar:
                                   value=st.session_state.get("vitesse_coupe", ""))
     vitesse_avance = st.text_input("Vitesse d'avance",
                                    value=st.session_state.get("vitesse_avance", ""))
-    
-    st.markdown("## Contrôle qualité")
-    
-    temps_controle = st.number_input(
-        "Temps contrôle (s)",
-        min_value=0.0,
-        value=st.session_state.get("temps_controle", 0.0),
-        step=1.0
-    )
-    
-    frequence_controle = st.number_input(
-        "Fréquence contrôle (pièces)",
-        min_value=1,
-        value=st.session_state.get("frequence_controle", 10),
-        step=1
-    )
     
     st.markdown("## Coefficient JA (Jugement d'Allure)")
     
@@ -540,16 +535,8 @@ if st.button("Générer le simogramme"):
     
     surcout_operateur = temps_operateur_corrige - total_operator_time
     
-    # Contrôle qualité
-    temps_libre_machine = max(0, max_x - total_operator_time)
-    impact_controle = 0
-    
-    if temps_controle > 0:
-        if temps_controle > temps_libre_machine:
-            impact_controle = (temps_controle - temps_libre_machine) / frequence_controle
-    
     # Temps cycle
-    temps_cycle = max_x + surcout_operateur + impact_controle
+    temps_cycle = max_x + surcout_operateur
     
     temps_disponible = heures_travail * 3600
     pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
@@ -597,10 +584,6 @@ if st.button("Générer le simogramme"):
     image_path = "simogramme.png"
     fig.savefig(image_path, bbox_inches="tight", dpi=300)
     
-    # Lire l'image pour la sauvegarder en BLOB
-    with open(image_path, 'rb') as img_file:
-        image_blob = img_file.read()
-    
     # ===================================================
     # SAUVEGARDE BDD
     # ===================================================
@@ -625,11 +608,8 @@ if st.button("Générer le simogramme"):
         'coef_ja_total': coef_ja_total,
         'coef_repo': coef_repo,
         'heures_travail': heures_travail,
-        'temps_controle': temps_controle,
-        'frequence_controle': frequence_controle,
         'machines': str(st.session_state["machines"]),
-        'donnees_tableau': json.dumps(donnees_tableau),
-        'simogramme_image': image_blob
+        'donnees_tableau': json.dumps(donnees_tableau)
     }
     
     save_configuration(config_data)
@@ -659,42 +639,37 @@ if st.button("Générer le simogramme"):
         worksheet["A6"] = "Date"
         worksheet["B6"] = str(datetime.now())
         
-        worksheet["A7"] = "Temps contrôle"
-        worksheet["B7"] = temps_controle
-        worksheet["A8"] = "Fréquence contrôle"
-        worksheet["B8"] = frequence_controle
+        worksheet["A7"] = "Coefficient habileté"
+        worksheet["B7"] = coef_habilete
+        worksheet["A8"] = "Coefficient activité"
+        worksheet["B8"] = coef_activite
+        worksheet["A9"] = "Coefficient conditions"
+        worksheet["B9"] = coef_conditions
+        worksheet["A10"] = "Coefficient stabilité"
+        worksheet["B10"] = coef_stabilite
+        worksheet["A11"] = "Coefficient JA total"
+        worksheet["B11"] = round(coef_ja_total, 2)
+        worksheet["A12"] = "Coefficient rendement"
+        worksheet["B12"] = coef_repo
+        worksheet["A13"] = "Heures travail/jour"
+        worksheet["B13"] = heures_travail
         
-        worksheet["A9"] = "Coefficient habileté"
-        worksheet["B9"] = coef_habilete
-        worksheet["A10"] = "Coefficient activité"
-        worksheet["B10"] = coef_activite
-        worksheet["A11"] = "Coefficient conditions"
-        worksheet["B11"] = coef_conditions
-        worksheet["A12"] = "Coefficient stabilité"
-        worksheet["B12"] = coef_stabilite
-        worksheet["A13"] = "Coefficient JA total"
-        worksheet["B13"] = round(coef_ja_total, 2)
-        worksheet["A14"] = "Coefficient rendement"
-        worksheet["B14"] = coef_repo
-        worksheet["A15"] = "Heures travail/jour"
-        worksheet["B15"] = heures_travail
-        
-        worksheet["A16"] = "Temps cycle"
-        worksheet["B16"] = round(temps_cycle, 2)
-        worksheet["A17"] = "Temps machine"
-        worksheet["B17"] = round(total_machine_time, 2)
-        worksheet["A18"] = "Temps opérateur"
-        worksheet["B18"] = round(total_operator_time, 2)
-        worksheet["A19"] = "Temps attente"
-        worksheet["B19"] = round(total_wait_time, 2)
-        worksheet["A20"] = "Taux Homme"
-        worksheet["B20"] = round(taux_homme * 100, 2)
-        worksheet["A21"] = "Taux Machine"
-        worksheet["B21"] = round(taux_machine * 100, 2)
-        worksheet["A22"] = "Pièces / Heure"
-        worksheet["B22"] = round(pieces_heure, 1)
-        worksheet["A23"] = "Pièces / Jour"
-        worksheet["B23"] = round(pieces_jour, 1)
+        worksheet["A14"] = "Temps cycle"
+        worksheet["B14"] = round(temps_cycle, 2)
+        worksheet["A15"] = "Temps machine"
+        worksheet["B15"] = round(total_machine_time, 2)
+        worksheet["A16"] = "Temps opérateur"
+        worksheet["B16"] = round(total_operator_time, 2)
+        worksheet["A17"] = "Temps attente"
+        worksheet["B17"] = round(total_wait_time, 2)
+        worksheet["A18"] = "Taux Homme"
+        worksheet["B18"] = round(taux_homme * 100, 2)
+        worksheet["A19"] = "Taux Machine"
+        worksheet["B19"] = round(taux_machine * 100, 2)
+        worksheet["A20"] = "Pièces / Heure"
+        worksheet["B20"] = round(pieces_heure, 1)
+        worksheet["A21"] = "Pièces / Jour"
+        worksheet["B21"] = round(pieces_jour, 1)
         
         img = Image(image_path)
         worksheet.add_image(img, 'D1')
@@ -718,7 +693,7 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
     
     if configurations:
         for config in configurations:
-            config_id, date, ref_piece, num_machine, pdc_val, _ = config
+            config_id, date, ref_piece, num_machine, pdc_val = config
             
             col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
             
