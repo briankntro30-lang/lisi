@@ -88,7 +88,7 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('CREATE TABLE IF NOT EXISTS configurations
+    c.execute('''CREATE TABLE IF NOT EXISTS configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
                   reference_piece TEXT,
@@ -353,7 +353,6 @@ if st.button("Générer le simogramme"):
         st.error("Veuillez ajouter au moins une machine avec des données")
         st.stop()
     
-    # Enlever le cadre extérieur de la figure
     fig, ax = plt.subplots(figsize=(18, 6))
     fig.patch.set_visible(False)
     ax.set_frame_on(False)
@@ -671,9 +670,9 @@ if st.button("Générer le simogramme"):
         if st.button("💾 Sauvegarder la simulation", key="save_btn"):
             try:
                 save_configuration(save_data)
-                st.success("Simulation sauvegardée avec succès!")
+                st.success("✅ Simulation sauvegardée avec succès!")
             except Exception as e:
-                st.error(f"Erreur lors de la sauvegarde: {str(e)}")
+                st.error(f"❌ Erreur lors de la sauvegarde: {str(e)}")
     
     # Bouton Exporter Excel
     with col_btn2:
