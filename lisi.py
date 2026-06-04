@@ -776,11 +776,11 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
         for config in configurations:
             try:
                 resultats = json.loads(config[18]) if len(config) > 18 else {}
-                history_data.append({
+                history_data.append{
                     'Date': config[1],
                     'Référence': config[2],
                     'Machine': config[3],
                     'JA Total': config[11],
                     'Repo': config[12],
                     'Temps cycle (s)': resultats.get('temps_cycle_final', 0),
-                    'Pièces/heure': resultats.get('pieces_heure'),) }
+                    'Pièces/heure': resultats.get('pieces_heure'),}
