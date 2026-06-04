@@ -88,10 +88,8 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    # Supprimer l'ancienne table si elle existe
     c.execute('DROP TABLE IF EXISTS configurations')
     
-    # Créer la nouvelle table
     c.execute('''CREATE TABLE configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
@@ -153,7 +151,6 @@ def delete_configuration(config_id):
     conn.commit()
     conn.close()
 
-# Initialiser la base de données
 init_database()
 
 # ===================================================
@@ -331,7 +328,6 @@ for m in st.session_state["machines"]:
         }
     )
     
-    # Calculer les débuts automatiquement
     for i in range(1, len(df)):
         prev_debut = float(df.loc[i-1, "Debut"])
         prev_duree = float(df.loc[i-1, "Duree"])
@@ -518,15 +514,29 @@ if st.button("Générer le simogramme"):
     # CALCULS
     # ===================================================
     
-    temps_humain_total = total_operator_manual + total_operator_parallel + total_masked_time
+    # Temps humain total réel (TM + TTM + TZ) - SANS coefficients
+    temps_humain_total_reel = total_operator_manual + total_operator_parallel + total_masked_time
+    
+    # Temps total du cycle sans coefficients
+    temps_cycle_sans_coef = total_machine_time + total_operator_manual
+    
+    # Application de JA uniquement sur TM
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
+    
+    # Temps cycle avec JA
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
+    
+    # Application du coefficient REPO
     temps_cycle_final = temps_cycle_avec_ja * coef_repo
     
-    denominateur_musculation = total_machine_time + temps_manuel_ajuste_ja + total_masked_time
-    taux_musculation = (temps_humain_total / denominateur_musculation * 100) if denominateur_musculation > 0 else 0
-    taux_occupation_homme = temps_humain_total / temps_cycle_final if temps_cycle_final > 0 else 0
-    taux_occupation_machine = total_machine_time / temps_cycle_final if temps_cycle_final > 0 else 0
+    # Taux occupation homme (calculé sur les temps réels, AVANT coefficients)
+    # = (TM réel + TTM réel + TZ) / Temps cycle sans coefficients
+    taux_occupation_homme = (temps_humain_total_reel / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
+    
+    # Taux occupation machine (calculé sur les temps réels)
+    taux_occupation_machine = (total_machine_time / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
+    
+    # Production
     pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
     
@@ -568,8 +578,9 @@ if st.button("Générer le simogramme"):
     with col4:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{round(taux_musculation, 1)} %</div>
-            <div class="metric-label">Taux de musculación</div>
+            <div class="metric-value">{round(taux_occupation_homme, 1)} %</div>
+            <div class="metric-label">Taux occupation homme</div>
+            <div class="metric-delta">TM+TTM+TZ = {round(temps_humain_total_reel, 1)} s</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -578,20 +589,13 @@ if st.button("Générer le simogramme"):
     with col5:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{round(taux_occupation_homme * 100, 1)} %</div>
-            <div class="metric-label">Taux occupation homme</div>
+            <div class="metric-value">{round(taux_occupation_machine, 1)} %</div>
+            <div class="metric-label">Taux occupation machine</div>
+            <div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col6:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{round(taux_occupation_machine * 100, 1)} %</div>
-            <div class="metric-label">Taux occupation machine</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col7:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-value">{round(pieces_heure, 1)}</div>
@@ -599,11 +603,19 @@ if st.button("Générer le simogramme"):
         </div>
         """, unsafe_allow_html=True)
     
-    with col8:
+    with col7:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-value">{round(pieces_jour, 1)}</div>
             <div class="metric-label">Pièces / Jour</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col8:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{round(total_repos_time, 2)} s</div>
+            <div class="metric-label">Temps repos (TR)</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -614,9 +626,15 @@ if st.button("Générer le simogramme"):
         st.write(f"**TT (machine seul):** {round(total_machine_time - total_operator_parallel, 2)} s")
         st.write(f"**TR (repos):** {round(total_repos_time, 2)} s")
         st.write(f"**TZ (masqué):** {round(total_masked_time, 2)} s")
+        st.write(f"**Temps humain total réel (TM+TTM+TZ):** {round(temps_humain_total_reel, 2)} s")
+        st.write(f"**Temps cycle sans coefficients:** {round(temps_cycle_sans_coef, 2)} s")
         st.write(f"**Coefficient JA:** {coef_ja_total:.2f}")
         st.write(f"**TM corrigé JA:** {round(total_operator_manual, 2)} × {coef_ja_total:.2f} = {round(temps_manuel_ajuste_ja, 2)} s")
+        st.write(f"**Temps cycle avec JA:** {round(temps_cycle_avec_ja, 2)} s")
+        st.write(f"**Coefficient REPO:** ×{coef_repo}")
         st.write(f"**Temps cycle final:** {round(temps_cycle_final, 2)} s")
+        st.write(f"**Taux occupation homme = (TM+TTM+TZ) / Temps cycle sans coef = {round(temps_humain_total_reel, 2)} / {round(temps_cycle_sans_coef, 2)} = {round(taux_occupation_homme, 1)} %**")
+        st.write(f"**Taux occupation machine = (TT+TTM) / Temps cycle sans coef = {round(total_machine_time, 2)} / {round(temps_cycle_sans_coef, 2)} = {round(taux_occupation_machine, 1)} %**")
     
     st.success("Simogramme généré avec succès")
     st.pyplot(fig)
@@ -679,18 +697,18 @@ if st.button("Générer le simogramme"):
         worksheet["B22"] = round(total_masked_time, 2)
         worksheet["A23"] = "Temps repos (TR)"
         worksheet["B23"] = round(total_repos_time, 2)
-        worksheet["A24"] = "Temps humain total"
-        worksheet["B24"] = round(temps_humain_total, 2)
-        worksheet["A25"] = "Temps manuel corrigé"
-        worksheet["B25"] = round(temps_manuel_ajuste_ja, 2)
-        worksheet["A26"] = "Temps cycle final"
-        worksheet["B26"] = round(temps_cycle_final, 2)
-        worksheet["A27"] = "Taux de musculación"
-        worksheet["B27"] = round(taux_musculation, 1)
+        worksheet["A24"] = "Temps humain total réel"
+        worksheet["B24"] = round(temps_humain_total_reel, 2)
+        worksheet["A25"] = "Temps cycle sans coefficients"
+        worksheet["B25"] = round(temps_cycle_sans_coef, 2)
+        worksheet["A26"] = "Temps manuel corrigé"
+        worksheet["B26"] = round(temps_manuel_ajuste_ja, 2)
+        worksheet["A27"] = "Temps cycle final"
+        worksheet["B27"] = round(temps_cycle_final, 2)
         worksheet["A28"] = "Taux occupation homme"
-        worksheet["B28"] = round(taux_occupation_homme * 100, 1)
+        worksheet["B28"] = round(taux_occupation_homme, 1)
         worksheet["A29"] = "Taux occupation machine"
-        worksheet["B29"] = round(taux_occupation_machine * 100, 1)
+        worksheet["B29"] = round(taux_occupation_machine, 1)
         worksheet["A30"] = "Pièces / Heure"
         worksheet["B30"] = round(pieces_heure, 1)
         worksheet["A31"] = "Pièces / Jour"
@@ -709,10 +727,10 @@ if st.button("Générer le simogramme"):
         'total_operator_parallel': total_operator_parallel,
         'total_masked_time': total_masked_time,
         'total_repos_time': total_repos_time,
-        'temps_humain_total': temps_humain_total,
+        'temps_humain_total_reel': temps_humain_total_reel,
+        'temps_cycle_sans_coef': temps_cycle_sans_coef,
         'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
         'temps_cycle_final': temps_cycle_final,
-        'taux_musculation': taux_musculation,
         'taux_occupation_homme': taux_occupation_homme,
         'taux_occupation_machine': taux_occupation_machine,
         'pieces_heure': pieces_heure,
