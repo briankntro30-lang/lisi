@@ -783,4 +783,4 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
                     'JA Total': config[11],
                     'Repo': config[12],
                     'Temps cycle (s)': resultats.get('temps_cycle_final', 0),
-                    'Pièces/heure': resultats.get('pieces_heure', 
+                    'Pièces/heure': resultats.get('pieces_heure'), 
