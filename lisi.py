@@ -88,9 +88,7 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('DROP TABLE IF EXISTS configurations')
-    
-    c.execute('''CREATE TABLE configurations
+    c.execute('CREATE TABLE IF NOT EXISTS configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
                   reference_piece TEXT,
@@ -131,6 +129,7 @@ def save_configuration(data):
     
     conn.commit()
     conn.close()
+    return True
 
 def load_configurations():
     """Charge toutes les configurations depuis la base de données"""
@@ -354,7 +353,10 @@ if st.button("Générer le simogramme"):
         st.error("Veuillez ajouter au moins une machine avec des données")
         st.stop()
     
+    # Enlever le cadre extérieur de la figure
     fig, ax = plt.subplots(figsize=(18, 6))
+    fig.patch.set_visible(False)
+    ax.set_frame_on(False)
     
     machines = st.session_state["machines"]
     y_positions = {}
@@ -514,29 +516,15 @@ if st.button("Générer le simogramme"):
     # CALCULS
     # ===================================================
     
-    # Temps humain total réel (TM + TTM + TZ) - SANS coefficients
     temps_humain_total_reel = total_operator_manual + total_operator_parallel + total_masked_time
-    
-    # Temps total du cycle sans coefficients
     temps_cycle_sans_coef = total_machine_time + total_operator_manual
-    
-    # Application de JA uniquement sur TM
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
-    
-    # Temps cycle avec JA
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
-    
-    # Application du coefficient REPO
     temps_cycle_final = temps_cycle_avec_ja * coef_repo
     
-    # Taux occupation homme (calculé sur les temps réels, AVANT coefficients)
-    # = (TM réel + TTM réel + TZ) / Temps cycle sans coefficients
     taux_occupation_homme = (temps_humain_total_reel / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
-    
-    # Taux occupation machine (calculé sur les temps réels)
     taux_occupation_machine = (total_machine_time / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
     
-    # Production
     pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
     
@@ -640,136 +628,142 @@ if st.button("Générer le simogramme"):
     st.pyplot(fig)
     
     # ===================================================
-    # EXPORTS
+    # BOUTONS: Sauvegarder et Exporter
     # ===================================================
     
-    image_path = "simogramme.png"
-    fig.savefig(image_path, bbox_inches="tight", dpi=300)
+    col_btn1, col_btn2 = st.columns(2)
     
-    excel_path = "simogramme.xlsx"
-    
-    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-        df_export = edited_df.copy()
-        df_export.to_excel(writer, sheet_name="Données", index=False)
+    # Bouton Sauvegarder la simulation
+    with col_btn1:
+        save_data = {
+            'date': str(datetime.now()),
+            'reference_piece': reference_piece,
+            'numero_machine': numéro_machine,
+            'pdc': pdc,
+            'vitesse_coupe': vitesse_coupe,
+            'vitesse_avance': vitesse_avance,
+            'coef_habilete': coef_habilete,
+            'coef_activite': coef_activite,
+            'coef_conditions': coef_conditions,
+            'coef_stabilite': coef_stabilite,
+            'coef_ja_total': coef_ja_total,
+            'coef_repo': coef_repo,
+            'heures_travail': heures_travail,
+            'machines': str(st.session_state["machines"]),
+            'donnees': edited_df.to_json(),
+            'resultats': json.dumps({
+                'total_machine_time': total_machine_time,
+                'total_operator_manual': total_operator_manual,
+                'total_operator_parallel': total_operator_parallel,
+                'total_masked_time': total_masked_time,
+                'total_repos_time': total_repos_time,
+                'temps_humain_total_reel': temps_humain_total_reel,
+                'temps_cycle_sans_coef': temps_cycle_sans_coef,
+                'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
+                'temps_cycle_final': temps_cycle_final,
+                'taux_occupation_homme': taux_occupation_homme,
+                'taux_occupation_machine': taux_occupation_machine,
+                'pieces_heure': pieces_heure,
+                'pieces_jour': pieces_jour
+            })
+        }
         
-        workbook = writer.book
-        worksheet = workbook.create_sheet("Résultats")
+        if st.button("💾 Sauvegarder la simulation", key="save_btn"):
+            try:
+                save_configuration(save_data)
+                st.success("Simulation sauvegardée avec succès!")
+            except Exception as e:
+                st.error(f"Erreur lors de la sauvegarde: {str(e)}")
+    
+    # Bouton Exporter Excel
+    with col_btn2:
+        image_path = "simogramme.png"
+        fig.savefig(image_path, bbox_inches="tight", dpi=300, facecolor='white', edgecolor='none')
         
-        from openpyxl.styles import Font
+        excel_path = "simogramme.xlsx"
         
-        worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
-        worksheet["A1"].font = Font(bold=True, size=14)
-        worksheet["A3"] = "Date"
-        worksheet["B3"] = str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-        worksheet["A4"] = "Référence pièce"
-        worksheet["B4"] = reference_piece
-        worksheet["A5"] = "Numéro machine"
-        worksheet["B5"] = numéro_machine
-        worksheet["A6"] = "PDC"
-        worksheet["B6"] = pdc
-        worksheet["A7"] = "Vitesse de coupe"
-        worksheet["B7"] = vitesse_coupe
-        worksheet["A8"] = "Vitesse d'avance"
-        worksheet["B8"] = vitesse_avance
+        with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+            df_export = edited_df.copy()
+            df_export.to_excel(writer, sheet_name="Données", index=False)
+            
+            workbook = writer.book
+            worksheet = workbook.create_sheet("Résultats")
+            
+            from openpyxl.styles import Font
+            
+            worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
+            worksheet["A1"].font = Font(bold=True, size=14)
+            worksheet["A3"] = "Date"
+            worksheet["B3"] = str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+            worksheet["A4"] = "Référence pièce"
+            worksheet["B4"] = reference_piece
+            worksheet["A5"] = "Numéro machine"
+            worksheet["B5"] = numéro_machine
+            worksheet["A6"] = "PDC"
+            worksheet["B6"] = pdc
+            worksheet["A7"] = "Vitesse de coupe"
+            worksheet["B7"] = vitesse_coupe
+            worksheet["A8"] = "Vitesse d'avance"
+            worksheet["B8"] = vitesse_avance
+            
+            worksheet["A10"] = "COEFFICIENTS"
+            worksheet["A11"] = "Habileté"
+            worksheet["B11"] = coef_habilete
+            worksheet["A12"] = "Activité"
+            worksheet["B12"] = coef_activite
+            worksheet["A13"] = "Conditions"
+            worksheet["B13"] = coef_conditions
+            worksheet["A14"] = "Stabilité"
+            worksheet["B14"] = coef_stabilite
+            worksheet["A15"] = "JA Total"
+            worksheet["B15"] = round(coef_ja_total, 2)
+            worksheet["A16"] = "Rendement (REPO)"
+            worksheet["B16"] = coef_repo
+            
+            worksheet["A18"] = "RÉSULTATS"
+            worksheet["A19"] = "Temps machine (TT+TTM)"
+            worksheet["B19"] = round(total_machine_time, 2)
+            worksheet["A20"] = "Temps manuel (TM)"
+            worksheet["B20"] = round(total_operator_manual, 2)
+            worksheet["A21"] = "Temps parallèle (TTM)"
+            worksheet["B21"] = round(total_operator_parallel, 2)
+            worksheet["A22"] = "Temps masqué (TZ)"
+            worksheet["B22"] = round(total_masked_time, 2)
+            worksheet["A23"] = "Temps repos (TR)"
+            worksheet["B23"] = round(total_repos_time, 2)
+            worksheet["A24"] = "Temps humain total réel"
+            worksheet["B24"] = round(temps_humain_total_reel, 2)
+            worksheet["A25"] = "Temps cycle sans coefficients"
+            worksheet["B25"] = round(temps_cycle_sans_coef, 2)
+            worksheet["A26"] = "Temps manuel corrigé"
+            worksheet["B26"] = round(temps_manuel_ajuste_ja, 2)
+            worksheet["A27"] = "Temps cycle final"
+            worksheet["B27"] = round(temps_cycle_final, 2)
+            worksheet["A28"] = "Taux occupation homme"
+            worksheet["B28"] = round(taux_occupation_homme, 1)
+            worksheet["A29"] = "Taux occupation machine"
+            worksheet["B29"] = round(taux_occupation_machine, 1)
+            worksheet["A30"] = "Pièces / Heure"
+            worksheet["B30"] = round(pieces_heure, 1)
+            worksheet["A31"] = "Pièces / Jour"
+            worksheet["B31"] = round(pieces_jour, 1)
+            
+            img = Image(image_path)
+            worksheet.add_image(img, 'D1')
         
-        worksheet["A10"] = "COEFFICIENTS"
-        worksheet["A11"] = "Habileté"
-        worksheet["B11"] = coef_habilete
-        worksheet["A12"] = "Activité"
-        worksheet["B12"] = coef_activite
-        worksheet["A13"] = "Conditions"
-        worksheet["B13"] = coef_conditions
-        worksheet["A14"] = "Stabilité"
-        worksheet["B14"] = coef_stabilite
-        worksheet["A15"] = "JA Total"
-        worksheet["B15"] = round(coef_ja_total, 2)
-        worksheet["A16"] = "Rendement (REPO)"
-        worksheet["B16"] = coef_repo
+        with open(excel_path, "rb") as f:
+            st.download_button(
+                "📥 Exporter Excel",
+                f,
+                file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="export_btn"
+            )
         
-        worksheet["A18"] = "RÉSULTATS"
-        worksheet["A19"] = "Temps machine (TT+TTM)"
-        worksheet["B19"] = round(total_machine_time, 2)
-        worksheet["A20"] = "Temps manuel (TM)"
-        worksheet["B20"] = round(total_operator_manual, 2)
-        worksheet["A21"] = "Temps parallèle (TTM)"
-        worksheet["B21"] = round(total_operator_parallel, 2)
-        worksheet["A22"] = "Temps masqué (TZ)"
-        worksheet["B22"] = round(total_masked_time, 2)
-        worksheet["A23"] = "Temps repos (TR)"
-        worksheet["B23"] = round(total_repos_time, 2)
-        worksheet["A24"] = "Temps humain total réel"
-        worksheet["B24"] = round(temps_humain_total_reel, 2)
-        worksheet["A25"] = "Temps cycle sans coefficients"
-        worksheet["B25"] = round(temps_cycle_sans_coef, 2)
-        worksheet["A26"] = "Temps manuel corrigé"
-        worksheet["B26"] = round(temps_manuel_ajuste_ja, 2)
-        worksheet["A27"] = "Temps cycle final"
-        worksheet["B27"] = round(temps_cycle_final, 2)
-        worksheet["A28"] = "Taux occupation homme"
-        worksheet["B28"] = round(taux_occupation_homme, 1)
-        worksheet["A29"] = "Taux occupation machine"
-        worksheet["B29"] = round(taux_occupation_machine, 1)
-        worksheet["A30"] = "Pièces / Heure"
-        worksheet["B30"] = round(pieces_heure, 1)
-        worksheet["A31"] = "Pièces / Jour"
-        worksheet["B31"] = round(pieces_jour, 1)
-        
-        img = Image(image_path)
-        worksheet.add_image(img, 'D1')
-    
-    # ===================================================
-    # SAUVEGARDE BDD
-    # ===================================================
-    
-    resultats_json = json.dumps({
-        'total_machine_time': total_machine_time,
-        'total_operator_manual': total_operator_manual,
-        'total_operator_parallel': total_operator_parallel,
-        'total_masked_time': total_masked_time,
-        'total_repos_time': total_repos_time,
-        'temps_humain_total_reel': temps_humain_total_reel,
-        'temps_cycle_sans_coef': temps_cycle_sans_coef,
-        'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
-        'temps_cycle_final': temps_cycle_final,
-        'taux_occupation_homme': taux_occupation_homme,
-        'taux_occupation_machine': taux_occupation_machine,
-        'pieces_heure': pieces_heure,
-        'pieces_jour': pieces_jour
-    })
-    
-    config_data = {
-        'date': str(datetime.now()),
-        'reference_piece': reference_piece,
-        'numero_machine': numéro_machine,
-        'pdc': pdc,
-        'vitesse_coupe': vitesse_coupe,
-        'vitesse_avance': vitesse_avance,
-        'coef_habilete': coef_habilete,
-        'coef_activite': coef_activite,
-        'coef_conditions': coef_conditions,
-        'coef_stabilite': coef_stabilite,
-        'coef_ja_total': coef_ja_total,
-        'coef_repo': coef_repo,
-        'heures_travail': heures_travail,
-        'machines': str(st.session_state["machines"]),
-        'donnees': edited_df.to_json(),
-        'resultats': resultats_json
-    }
-    
-    save_configuration(config_data)
-    
-    with open(excel_path, "rb") as f:
-        st.download_button(
-            "📥 Télécharger Excel",
-            f,
-            file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    
-    if os.path.exists(image_path):
-        os.remove(image_path)
-    if os.path.exists(excel_path):
-        os.remove(excel_path)
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        if os.path.exists(excel_path):
+            os.remove(excel_path)
 
 # ===================================================
 # HISTORIQUE
