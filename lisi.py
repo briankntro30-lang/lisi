@@ -88,7 +88,11 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('''CREATE TABLE IF NOT EXISTS configurations
+    # Supprimer l'ancienne table si elle existe
+    c.execute('DROP TABLE IF EXISTS configurations')
+    
+    # Créer la nouvelle table
+    c.execute('''CREATE TABLE configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
                   reference_piece TEXT,
@@ -115,12 +119,12 @@ def save_configuration(data):
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    c.execute('''INSERT INTO configurations 
+    c.execute("""INSERT INTO configurations 
                  (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
                   vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
                   coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
                   machines, donnees, resultats)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
               (data['date'], data['reference_piece'], data['numero_machine'], 
                data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
@@ -149,6 +153,7 @@ def delete_configuration(config_id):
     conn.commit()
     conn.close()
 
+# Initialiser la base de données
 init_database()
 
 # ===================================================
@@ -326,6 +331,7 @@ for m in st.session_state["machines"]:
         }
     )
     
+    # Calculer les débuts automatiquement
     for i in range(1, len(df)):
         prev_debut = float(df.loc[i-1, "Debut"])
         prev_duree = float(df.loc[i-1, "Duree"])
@@ -338,13 +344,20 @@ for m in st.session_state["machines"]:
     df["Sys"] = m
     dfs.append(df)
 
-edited_df = pd.concat(dfs, ignore_index=True)
+if dfs:
+    edited_df = pd.concat(dfs, ignore_index=True)
+else:
+    edited_df = pd.DataFrame()
 
 # ===================================================
 # GENERATE SIMOGRAMME
 # ===================================================
 
 if st.button("Générer le simogramme"):
+    if edited_df.empty:
+        st.error("Veuillez ajouter au moins une machine avec des données")
+        st.stop()
+    
     fig, ax = plt.subplots(figsize=(18, 6))
     
     machines = st.session_state["machines"]
@@ -516,7 +529,6 @@ if st.button("Générer le simogramme"):
     taux_occupation_machine = total_machine_time / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
-    surcout_operateur = temps_manuel_ajuste_ja - total_operator_manual
     
     # ===================================================
     # AFFICHAGE KPI
@@ -527,73 +539,73 @@ if st.button("Générer le simogramme"):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} s</div>
+            <div class="metric-value">{round(temps_cycle_final, 2)} s</div>
             <div class="metric-label">Temps cycle final</div>
-            <div class="metric-delta">×{} repo</div>
+            <div class="metric-delta">×{coef_repo} repo</div>
         </div>
-        """.format(round(temps_cycle_final, 2), coef_repo), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} s</div>
+            <div class="metric-value">{round(total_machine_time, 2)} s</div>
             <div class="metric-label">Temps machine total</div>
-            <div class="metric-delta">TT: {} s, TTM: {} s</div>
+            <div class="metric-delta">TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s</div>
         </div>
-        """.format(round(total_machine_time, 2), round(total_machine_time - total_operator_parallel, 2), round(total_operator_parallel, 2)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} s</div>
+            <div class="metric-value">{round(total_operator_manual, 2)} s</div>
             <div class="metric-label">Temps manuel (TM)</div>
-            <div class="metric-delta">×{} JA = {} s</div>
+            <div class="metric-delta">×{round(coef_ja_total, 2)} JA = {round(temps_manuel_ajuste_ja, 2)} s</div>
         </div>
-        """.format(round(total_operator_manual, 2), round(coef_ja_total, 2), round(temps_manuel_ajuste_ja, 2)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col4:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} %</div>
+            <div class="metric-value">{round(taux_musculation, 1)} %</div>
             <div class="metric-label">Taux de musculación</div>
         </div>
-        """.format(round(taux_musculation, 1)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     col5, col6, col7, col8 = st.columns(4)
     
     with col5:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} %</div>
+            <div class="metric-value">{round(taux_occupation_homme * 100, 1)} %</div>
             <div class="metric-label">Taux occupation homme</div>
         </div>
-        """.format(round(taux_occupation_homme * 100, 1)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col6:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{} %</div>
+            <div class="metric-value">{round(taux_occupation_machine * 100, 1)} %</div>
             <div class="metric-label">Taux occupation machine</div>
         </div>
-        """.format(round(taux_occupation_machine * 100, 1)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col7:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{}</div>
+            <div class="metric-value">{round(pieces_heure, 1)}</div>
             <div class="metric-label">Pièces / Heure</div>
         </div>
-        """.format(round(pieces_heure, 1)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     with col8:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-value">{}</div>
+            <div class="metric-value">{round(pieces_jour, 1)}</div>
             <div class="metric-label">Pièces / Jour</div>
         </div>
-        """.format(round(pieces_jour, 1)), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     # Détail des calculs
     with st.expander("Détail des calculs"):
