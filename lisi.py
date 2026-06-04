@@ -5,6 +5,7 @@ from matplotlib.patches import Rectangle
 from openpyxl.drawing.image import Image
 from datetime import datetime
 import sqlite3
+import os
 import json
 
 # ===================================================
@@ -62,44 +63,32 @@ def init_database():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    # Vérifier si la colonne donnees_tableau existe, sinon recréer la table
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='configurations'")
-    table_exists = c.fetchone()
-    
-    if table_exists:
-        # Vérifier les colonnes existantes
-        c.execute("PRAGMA table_info(configurations)")
-        columns = [col[1] for col in c.fetchall()]
-        
-        if 'donnees_tableau' not in columns:
-            # Supprimer l'ancienne table et recréer
-            c.execute("DROP TABLE configurations")
-            table_exists = False
-    
-    if not table_exists:
-        # Créer la nouvelle table
-        c.execute('''CREATE TABLE configurations
-                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                      date TEXT,
-                      reference_piece TEXT,
-                      numero_machine TEXT,
-                      pdc TEXT,
-                      vitesse_coupe TEXT,
-                      vitesse_avance TEXT,
-                      coef_habilete REAL,
-                      coef_activite REAL,
-                      coef_conditions REAL,
-                      coef_stabilite REAL,
-                      coef_ja_total REAL,
-                      coef_repo REAL,
-                      heures_travail REAL,
-                      machines TEXT,
-                      donnees_tableau TEXT)''')
+    # Table des configurations avec stockage JSON pour les dataframes
+    c.execute('''CREATE TABLE IF NOT EXISTS configurations
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  date TEXT,
+                  reference_piece TEXT,
+                  numero_machine TEXT,
+                  pdc TEXT,
+                  vitesse_coupe TEXT,
+                  vitesse_avance TEXT,
+                  coef_habilete REAL,
+                  coef_activite REAL,
+                  coef_conditions REAL,
+                  coef_stabilite REAL,
+                  coef_ja_total REAL,
+                  coef_repo REAL,
+                  heures_travail REAL,
+                  temps_controle REAL,
+                  frequence_controle INTEGER,
+                  machines TEXT,
+                  donnees TEXT,
+                  resultats TEXT)''')
     
     conn.commit()
     conn.close()
 
-def save_configuration(data):
+def save_configuration(data, resultats):
     """Sauvegarde une configuration dans la base de données"""
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
@@ -108,13 +97,14 @@ def save_configuration(data):
                  (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
                   vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
                   coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
-                  machines, donnees_tableau)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  temps_controle, frequence_controle, machines, donnees, resultats)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (data['date'], data['reference_piece'], data['numero_machine'], 
                data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
                data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
-               data['heures_travail'], data['machines'], data['donnees_tableau']))
+               data['heures_travail'], data['temps_controle'], data['frequence_controle'],
+               data['machines'], data['donnees'], resultats))
     
     conn.commit()
     conn.close()
@@ -124,37 +114,12 @@ def load_configurations():
     conn = sqlite3.connect('simogramme_data.db')
     c = conn.cursor()
     
-    try:
-        c.execute('SELECT id, date, reference_piece, numero_machine FROM configurations ORDER BY date DESC')
-        rows = c.fetchall()
-    except sqlite3.OperationalError:
-        rows = []
+    c.execute('SELECT * FROM configurations ORDER BY date DESC')
+    rows = c.fetchall()
     
     conn.close()
     return rows
 
-def load_full_configuration(config_id):
-    """Charge une configuration complète par ID"""
-    conn = sqlite3.connect('simogramme_data.db')
-    c = conn.cursor()
-    
-    c.execute('SELECT * FROM configurations WHERE id = ?', (config_id,))
-    row = c.fetchone()
-    
-    conn.close()
-    return row
-
-def delete_configuration(config_id):
-    """Supprime une configuration"""
-    conn = sqlite3.connect('simogramme_data.db')
-    c = conn.cursor()
-    
-    c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
-    
-    conn.commit()
-    conn.close()
-
-# Initialiser la base de données
 init_database()
 
 # ===================================================
@@ -185,42 +150,6 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 # ===================================================
-# CHARGER CONFIGURATION DEPUIS HISTORIQUE
-# ===================================================
-
-def load_saved_configuration(config_id):
-    """Charge une configuration sauvegardée et restaure toutes les données"""
-    config = load_full_configuration(config_id)
-    
-    if config:
-        # Restaurer les variables de session
-        st.session_state["loaded_config_id"] = config[0]
-        st.session_state["reference_piece"] = config[2]
-        st.session_state["numero_machine"] = config[3]
-        st.session_state["pdc"] = config[4]
-        st.session_state["vitesse_coupe"] = config[5]
-        st.session_state["vitesse_avance"] = config[6]
-        st.session_state["coef_habilete"] = config[7]
-        st.session_state["coef_activite"] = config[8]
-        st.session_state["coef_conditions"] = config[9]
-        st.session_state["coef_stabilite"] = config[10]
-        st.session_state["coef_repo"] = config[12]
-        st.session_state["heures_travail"] = config[13]
-        st.session_state["machines"] = eval(config[14])
-        
-        # Restaurer les données des tableaux
-        donnees_tableau = json.loads(config[15])
-        
-        # Créer les dataframes pour chaque machine
-        for machine, df_data in donnees_tableau.items():
-            st.session_state[f"df_{machine}"] = pd.DataFrame(df_data)
-        
-        st.session_state["config_loaded"] = True
-        return True
-    
-    return False
-
-# ===================================================
 # SIDEBAR
 # ===================================================
 
@@ -230,77 +159,84 @@ with st.sidebar:
     
     st.markdown("## Informations production")
     
-    # Utiliser session_state pour persister les valeurs
-    reference_piece = st.text_input("Référence pièce", 
-                                    value=st.session_state.get("reference_piece", ""))
-    numéro_machine = st.text_input("Numéro de la machine",
-                                   value=st.session_state.get("numero_machine", ""))
-    pdc = st.text_input("PDC",
-                       value=st.session_state.get("pdc", ""))
-    vitesse_coupe = st.text_input("Vitesse de coupe",
-                                  value=st.session_state.get("vitesse_coupe", ""))
-    vitesse_avance = st.text_input("Vitesse d'avance",
-                                   value=st.session_state.get("vitesse_avance", ""))
+    reference_piece = st.text_input("Référence pièce")
+    numéro_machine = st.text_input("Numéro de la machine")
+    pdc = st.text_input("PDC")
+    vitesse_coupe = st.text_input("Vitesse de coupe")
+    vitesse_avance = st.text_input("Vitesse d'avance")
     
     st.markdown("## Coefficient JA (Jugement d'Allure)")
+    st.info("Les coefficients sont des valeurs entre 0 et 1, la somme sera ajoutée à 1")
     
     coef_habilete = st.number_input(
         "Coefficient d'habileté",
         min_value=0.0,
         max_value=1.0,
-        value=st.session_state.get("coef_habilete", 0.0),
-        step=0.05,
-        help="Habileté de l'opérateur"
+        value=0.0,
+        step=0.05
     )
     
     coef_activite = st.number_input(
         "Coefficient d'activité",
         min_value=0.0,
         max_value=1.0,
-        value=st.session_state.get("coef_activite", 0.0),
-        step=0.05,
-        help="Activité de l'opérateur"
+        value=0.0,
+        step=0.05
     )
     
     coef_conditions = st.number_input(
         "Coefficient des conditions de travail",
         min_value=0.0,
         max_value=1.0,
-        value=st.session_state.get("coef_conditions", 0.0),
-        step=0.05,
-        help="Conditions de travail"
+        value=0.0,
+        step=0.05
     )
     
     coef_stabilite = st.number_input(
         "Coefficient de stabilité",
         min_value=0.0,
         max_value=1.0,
-        value=st.session_state.get("coef_stabilite", 0.0),
-        step=0.05,
-        help="Stabilité du processus"
+        value=0.0,
+        step=0.05
     )
     
-    # Calcul du coefficient JA total (somme des 4 + 1)
     coef_ja_total = 1 + coef_habilete + coef_activite + coef_conditions + coef_stabilite
     
     st.metric("Coefficient JA total", f"{coef_ja_total:.2f}")
     
     st.markdown("## Coefficient de rendement opérateur")
+    st.info("Ce coefficient multiplie le temps cycle de base")
+    
     coef_repo = st.number_input(
         "Coefficient de rendement opérateur",
         min_value=1.00,
         max_value=5.00,
-        value=st.session_state.get("coef_repo", 1.00),
-        step=0.05,
-        help="Coefficient supérieur à 1"
+        value=1.00,
+        step=0.05
     )
     
     heures_travail = st.number_input(
         "Heures de travail / jour",
         min_value=1.0,
         max_value=24.0,
-        value=st.session_state.get("heures_travail", 7.0),
+        value=7.0,
         step=0.5
+    )
+    
+    st.markdown("## Contrôle qualité")
+    
+    temps_controle = st.number_input(
+        "Temps contrôle (s)",
+        min_value=0.0,
+        value=0.0,
+        step=1.0
+    )
+    
+    frequence_controle = st.number_input(
+        "Fréquence contrôle (pièces)",
+        min_value=1,
+        value=10,
+        step=1
     )
     
     st.markdown("---")
@@ -337,67 +273,70 @@ for m in st.session_state["machines"]:
         if m != "M1":
             if st.button("🗑️", key=f"del_{m}"):
                 st.session_state["machines"].remove(m)
-                if f"df_{m}" in st.session_state:
-                    del st.session_state[f"df_{m}"]
+                if m in st.session_state:
+                    del st.session_state[m]
                 st.rerun()
         else:
             st.write("")
     
-    # Récupérer les données existantes ou créer un nouveau dataframe
-    df_key = f"df_{m}"
-    if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
-        default_df = st.session_state[df_key]
-    else:
-        default_df = pd.DataFrame({
-            "Etape": [""],
-            "Début": [0.0],
-            "Durée": [0.0],
-            "TT": [False],
-            "TM": [False],
-            "TTM": [False],
-            "TR": [False],
-            "TF": [False],
-        })
+    default_df = pd.DataFrame({
+        "Etape": [""],
+        "Début": [0.0],
+        "Durée": [0.0],
+        "🎯 TM (Manuel seul)": [False],
+        "🤖 TT (Tech. seul)": [False],
+        "🤝 TTM (Parallèle)": [False],
+        "☕ TR (Repos)": [False],
+        "⏸️ TZ (Masqué)": [False],
+        "/// Hachures": [False],
+    })
     
     df = st.data_editor(
         default_df,
         num_rows="dynamic",
-        key=f"editor_{m}",
-        use_container_width=True
+        key=m,
+        use_container_width=True,
+        column_config={
+            "Etape": st.column_config.TextColumn("Description étape", width="medium"),
+            "Début": st.column_config.NumberColumn("Début (s)", format="%.1f"),
+            "Durée": st.column_config.NumberColumn("Durée (s)", format="%.1f"),
+            "🎯 TM (Manuel seul)": st.column_config.CheckboxColumn("TM - Opérateur seul"),
+            "🤖 TT (Tech. seul)": st.column_config.CheckboxColumn("TT - Machine seule"),
+            "🤝 TTM (Parallèle)": st.column_config.CheckboxColumn("TTM - Opérateur + Machine"),
+            "☕ TR (Repos)": st.column_config.CheckboxColumn("TR - Repos"),
+            "⏸️ TZ (Masqué)": st.column_config.CheckboxColumn("TZ - Temps masqué"),
+            "/// Hachures": st.column_config.CheckboxColumn("Hachures visuelles"),
+        }
     )
     
-    # Auto-calcul du début
     for i in range(1, len(df)):
-        if pd.notna(df.loc[i-1, "Début"]) and pd.notna(df.loc[i-1, "Durée"]):
-            prev_debut = float(df.loc[i-1, "Début"])
-            prev_duree = float(df.loc[i-1, "Durée"])
-            auto_debut = prev_debut + prev_duree
-            
-            if (df.loc[i, "Début"] == 0 or pd.isna(df.loc[i, "Début"])):
-                df.loc[i, "Début"] = auto_debut
+        prev_debut = float(df.loc[i-1, "Début"])
+        prev_duree = float(df.loc[i-1, "Durée"])
+        auto_debut = prev_debut + prev_duree
+        
+        if pd.isna(df.loc[i, "Début"]) or df.loc[i, "Début"] == 0:
+            df.loc[i, "Début"] = auto_debut
     
-    df["Fin"] = df["Début"] + df["Durée"]
-    df["Sys"] = m
+    df_renamed = df.rename(columns={
+        "🎯 TM (Manuel seul)": "TM",
+        "🤖 TT (Tech. seul)": "TT",
+        "🤝 TTM (Parallèle)": "TTM",
+        "☕ TR (Repos)": "TR",
+        "⏸️ TZ (Masqué)": "TZ",
+        "/// Hachures": "TF"
+    })
     
-    # Stocker le dataframe modifié dans session_state avec une clé unique
-    st.session_state[df_key] = df
-    
-    dfs.append(df)
+    df_renamed["Fin"] = df_renamed["Début"] + df_renamed["Durée"]
+    df_renamed["Sys"] = m
+    dfs.append(df_renamed)
 
-if dfs:
-    edited_df = pd.concat(dfs, ignore_index=True)
-else:
-    edited_df = pd.DataFrame()
+edited_df = pd.concat(dfs, ignore_index=True)
 
 # ===================================================
-# BOUTON POUR GÉNÉRER
+# GENERATE SIMOGRAMME
 # ===================================================
 
-if st.button("🎯 Générer le simogramme", use_container_width=True):
-    if edited_df.empty:
-        st.error("Veuillez ajouter des données dans les tableaux")
-        st.stop()
-    
+if st.button("Générer le simogramme"):
     fig, ax = plt.subplots(figsize=(18, 6))
     
     machines = st.session_state["machines"]
@@ -410,15 +349,18 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
         y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
     
     max_x = 0
-    total_machine_time = 0
-    total_operator_time = 0
-    total_wait_time = 0
+    total_machine_time = 0      # TT + TTM
+    total_operator_manual = 0   # TM (opérateur seul)
+    total_operator_parallel = 0 # TTM (parallèle)
+    total_repos_time = 0        # TR
+    total_masked_time = 0       # TZ
     
     COLORS = {
-        "TT": "#1f4fff",
         "TM": "#ff8c00",
+        "TT": "#1f4fff",
         "TTM": "#111827",
-        "TZ": "#9ca3af"
+        "TR": "#9ca3af",
+        "TZ": "#e5e7eb"
     }
     
     def draw_hatch(ax, rect, x, y, w, h, spacing=0.2):
@@ -440,13 +382,30 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
         temps = float(row["Durée"])
         end = start + temps
         sys = str(row["Sys"])
-        tt = bool(row["TT"])
         tm = bool(row["TM"])
+        tt = bool(row["TT"])
         ttm = bool(row["TTM"])
-        tz = bool(row["TR"])
+        tr = bool(row["TR"])
+        tz = bool(row["TZ"])
         tf = bool(row["TF"])
         
-        if tt:
+        # TZ - Temps masqué (seulement pour l'affichage, mais compté pour taux)
+        if tz:
+            total_masked_time += temps
+            rect = Rectangle(
+                (start, y_op),
+                temps,
+                h,
+                facecolor=COLORS["TZ"],
+                edgecolor="black",
+                alpha=0.4
+            )
+            ax.add_patch(rect)
+            max_x = max(max_x, end)
+            continue
+        
+        # TT - Machine seule
+        if tt and not ttm:
             total_machine_time += temps
             rect = Rectangle(
                 (start, y_positions[sys]),
@@ -460,8 +419,9 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
                 draw_hatch(ax, rect, start, y_positions[sys], temps, h)
             max_x = max(max_x, end)
         
-        elif tm:
-            total_operator_time += temps
+        # TM - Opérateur seul
+        elif tm and not ttm:
+            total_operator_manual += temps
             rect = Rectangle(
                 (start, y_op),
                 temps,
@@ -474,9 +434,10 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
         
+        # TTM - Parallèle
         elif ttm:
-            total_operator_time += temps
             total_machine_time += temps
+            total_operator_parallel += temps
             rect = Rectangle(
                 (start, y_op),
                 temps,
@@ -488,32 +449,35 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
             ax.plot(
                 [start, start + temps],
                 [y_op, y_positions[sys]],
-                color="black"
+                color="black",
+                linewidth=1.5
             )
             if tf:
                 draw_hatch(ax, rect, start, y_op, temps, abs(y_positions[sys] - y_op))
             max_x = max(max_x, end)
         
-        elif tz:
-            total_wait_time += temps
+        # TR - Repos
+        elif tr:
+            total_repos_time += temps
             rect = Rectangle(
                 (start, y_op),
                 temps,
                 h,
-                facecolor=COLORS["TZ"],
+                facecolor=COLORS["TR"],
                 edgecolor="black",
                 alpha=0.6
             )
             ax.add_patch(rect)
             max_x = max(max_x, end)
         
-        if temps >= 0.5:
+        if temps >= 0.5 and op != "" and op != "nan":
             ax.text(
                 start + temps/2,
                 y_op - 0.18,
                 op,
                 ha="center",
-                fontsize=9
+                fontsize=9,
+                rotation=0
             )
     
     for m, y in y_positions.items():
@@ -523,223 +487,300 @@ if st.button("🎯 Générer le simogramme", use_container_width=True):
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.text(-1.5, y_op, "Opérateur", ha="right", fontsize=16, fontweight="bold")
     
-    ax.set_xlim(0, max_x + 2)
+    ax.set_xlim(-2, max_x + 2)
+    ax.set_ylim(-1, 1.5)
     ax.set_yticks([])
-    ax.grid(axis="x", alpha=0.2)
+    ax.set_xlabel("Temps (secondes)", fontsize=12, fontweight="bold")
+    ax.grid(axis="x", alpha=0.2, linestyle="--")
     plt.tight_layout()
     
     # ===================================================
-    # CALCULS AVEC COEFFICIENTS
+    # CALCULS AVEC EXCLUSION DE TZ POUR LE CYCLE
     # ===================================================
     
-    # Application du coefficient JA (somme des 4 + 1)
-    temps_operateur_ja = total_operator_time * coef_ja_total
+    # Temps humain total (TM + TTM) - TZ est inclus ici pour les taux
+    temps_humain_total = total_operator_manual + total_operator_parallel + total_masked_time
     
-    # Application du coefficient de rendement
-    temps_operateur_corrige = temps_operateur_ja * coef_repo
+    # Temps cycle de base (sans TZ et sans coefficients)
+    temps_cycle_base = total_machine_time + total_operator_manual
     
-    surcout_operateur = temps_operateur_corrige - total_operator_time
+    # Application de JA uniquement sur TM
+    temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
     
-    # Temps cycle
-    temps_cycle = max_x + surcout_operateur
+    # Temps cycle avec JA (toujours sans TZ)
+    temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
     
-    temps_disponible = heures_travail * 3600
-    pieces_heure = 3600 / temps_cycle if temps_cycle > 0 else 0
+    # Application du coefficient REPO sur le temps cycle avec JA
+    temps_cycle_avec_repo = temps_cycle_avec_ja * coef_repo
+    
+    # Impact contrôle qualité
+    impact_controle = 0
+    if temps_controle > 0 and frequence_controle > 0:
+        temps_libre_dans_cycle = max(0, temps_cycle_avec_repo - total_machine_time - temps_manuel_ajuste_ja)
+        if temps_controle > temps_libre_dans_cycle:
+            impact_controle = (temps_controle - temps_libre_dans_cycle) / frequence_controle
+    
+    # Temps cycle final (TZ exclu)
+    temps_cycle_final = temps_cycle_avec_repo + impact_controle
+    
+    # ===================================================
+    # KPI
+    # ===================================================
+    
+    # Taux de musculación (inclut TZ)
+    # = (TM + TTM + TZ) / (TT + TTM + TM_coeff + TZ) × 100
+    denominateur_musculation = (total_machine_time - total_operator_parallel) + total_operator_parallel + temps_manuel_ajuste_ja + total_masked_time
+    denominateur_musculation = total_machine_time + temps_manuel_ajuste_ja + total_masked_time
+    
+    taux_musculation = (temps_humain_total / denominateur_musculation * 100) if denominateur_musculation > 0 else 0
+    
+    # Taux occupation homme (inclut TZ)
+    taux_occupation_homme = temps_humain_total / temps_cycle_final if temps_cycle_final > 0 else 0
+    
+    # Taux occupation machine (TZ n'affecte pas la machine)
+    taux_occupation_machine = total_machine_time / temps_cycle_final if temps_cycle_final > 0 else 0
+    
+    # Production
+    heures_travail_sec = heures_travail * 3600
+    pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
     
-    taux_homme = temps_operateur_corrige / temps_cycle if temps_cycle > 0 else 0
-    taux_machine = total_machine_time / temps_cycle if temps_cycle > 0 else 0
+    # Surcoût
+    surcout_operateur = temps_manuel_ajuste_ja - total_operator_manual
     
     # ===================================================
-    # AFFICHAGE KPI
+    # AFFICHAGE
     # ===================================================
     
-    st.markdown("## KPI")
+    st.markdown("## 📊 Indicateurs de performance")
     
+    # Première ligne
     col1, col2, col3, col4 = st.columns(4)
     
-    col1.metric("Temps cycle", f"{round(temps_cycle, 2)} s")
-    col2.metric("Temps machine", f"{round(total_machine_time, 2)} s")
-    col3.metric("Temps opérateur", f"{round(total_operator_time, 2)} s")
-    col4.metric("Attente", f"{round(total_wait_time, 2)} s")
+    col1.metric("⏱️ Temps cycle final", f"{round(temps_cycle_final, 2)} s",
+                delta=f"×{coef_repo} repo")
+    col2.metric("🤖 Temps machine total", f"{round(total_machine_time, 2)} s",
+                delta=f"TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s")
+    col3.metric("👤 Temps manuel (TM)", f"{round(total_operator_manual, 2)} s",
+                delta=f"×{coef_ja_total:.2f} JA = {round(temps_manuel_ajuste_ja, 2)} s")
+    col4.metric("💪 Taux de musculación", f"{round(taux_musculation, 1)} %",
+                help="(TM + TTM + TZ) / (TT + TTM + TM_coeff + TZ) × 100")
     
+    # Deuxième ligne
     col5, col6, col7, col8 = st.columns(4)
     
-    col5.metric("Taux Homme", f"{round(taux_homme * 100, 1)} %")
-    col6.metric("Taux Machine", f"{round(taux_machine * 100, 1)} %")
-    col7.metric("Pièces / Heure", f"{round(pieces_heure, 1)}")
-    col8.metric("Pièces / Jour", f"{round(pieces_jour, 1)}")
+    col5.metric("👥 Taux occupation homme", f"{round(taux_occupation_homme * 100, 1)} %",
+                help=f"TM: {round(total_operator_manual, 1)} s + TTM: {round(total_operator_parallel, 1)} s + TZ: {round(total_masked_time, 1)} s = {round(temps_humain_total, 1)} s")
+    col6.metric("🏭 Taux occupation machine", f"{round(taux_occupation_machine * 100, 1)} %")
+    col7.metric("📦 Pièces / Heure", f"{round(pieces_heure, 1)}")
+    col8.metric("📅 Pièces / Jour", f"{round(pieces_jour, 1)}")
     
-    # Affichage des détails des coefficients
-    with st.expander("Détails des coefficients appliqués"):
-        st.write(f"Temps opérateur de base: {round(total_operator_time, 2)} s")
-        st.write(f"Coefficient JA (H+AC+CT+S): {coef_habilete} + {coef_activite} + {coef_conditions} + {coef_stabilite} = {coef_ja_total:.2f}")
-        st.write(f"Temps opérateur avec JA: {round(temps_operateur_ja, 2)} s")
-        st.write(f"Coefficient de rendement: {coef_repo}")
-        st.write(f"Temps opérateur final: {round(temps_operateur_corrige, 2)} s")
-        st.write(f"Surtemps opérateur: +{round(surcout_operateur, 2)} s")
+    # Détail des calculs
+    with st.expander("📐 Détail des calculs"):
+        st.markdown("### ⏱️ Temps mesurés")
+        st.write(f"- **TM** (Temps Manuel - opérateur seul): **{round(total_operator_manual, 2)} s**")
+        st.write(f"- **TTM** (Temps parallèle): **{round(total_operator_parallel, 2)} s**")
+        st.write(f"- **TT** (Temps machine seul): **{round(total_machine_time - total_operator_parallel, 2)} s**")
+        st.write(f"- **TR** (Temps repos): **{round(total_repos_time, 2)} s**")
+        st.write(f"- **TZ** (Temps masqué): **{round(total_masked_time, 2)} s**")
+        
+        st.markdown("### 📈 Temps humain total (inclut TZ)")
+        st.write(f"- TM + TTM + TZ = {round(total_operator_manual, 2)} + {round(total_operator_parallel, 2)} + {round(total_masked_time, 2)} = **{round(temps_humain_total, 2)} s**")
+        
+        st.markdown("### 📊 Application des coefficients")
+        st.write(f"- Coefficient JA: **{coef_habilete} + {coef_activite} + {coef_conditions} + {coef_stabilite} + 1 = {coef_ja_total:.2f}**")
+        st.write(f"- TM corrigé JA = {round(total_operator_manual, 2)} × {coef_ja_total:.2f} = **{round(temps_manuel_ajuste_ja, 2)} s**")
+        st.write(f"- Surcoût opérateur: **+{round(surcout_operateur, 2)} s**")
+        
+        st.markdown("### 🔄 Temps cycle (TZ exclu du cycle)")
+        st.write(f"- Temps machine (TT + TTM): **{round(total_machine_time, 2)} s**")
+        st.write(f"- Temps manuel corrigé (TM_coeff): **+ {round(temps_manuel_ajuste_ja, 2)} s**")
+        st.write(f"- = Temps cycle base: **{round(temps_cycle_avec_ja, 2)} s**")
+        st.write(f"- Coefficient rendement (REPO): **× {coef_repo}**")
+        st.write(f"- = Temps cycle avec REPO: **{round(temps_cycle_avec_repo, 2)} s**")
+        
+        if impact_controle > 0:
+            st.write(f"- Impact contrôle qualité: **+ {round(impact_controle, 2)} s**")
+            st.write(f"- = Temps cycle final: **{round(temps_cycle_final, 2)} s**")
+        else:
+            st.write(f"- = Temps cycle final: **{round(temps_cycle_final, 2)} s**")
+        
+        st.markdown("### 💪 Calcul du taux de musculación (inclut TZ)")
+        st.write(f"- Numérateur (TM + TTM + TZ) = **{round(temps_humain_total, 2)} s**")
+        st.write(f"- Dénominateur (TT + TTM + TM_coeff + TZ) = {round(total_machine_time - total_operator_parallel, 2)} + {round(total_operator_parallel, 2)} + {round(temps_manuel_ajuste_ja, 2)} + {round(total_masked_time, 2)} = **{round(denominateur_musculation, 2)} s**")
+        st.write(f"- Taux = {round(temps_humain_total, 2)} / {round(denominateur_musculation, 2)} × 100 = **{round(taux_musculation, 1)} %**")
     
-    st.success("Simogramme généré avec succès")
+    # Légende
+    with st.expander("🎨 Légende des couleurs"):
+        st.markdown("""
+        - 🟠 **Orange** = TM (Temps Manuel - opérateur seul)
+        - 🔵 **Bleu** = TT (Temps Technologique - machine seule)
+        - ⚫ **Noir** = TTM (Temps parallèle - opérateur + machine)
+        - 🩶 **Gris** = TR (Temps Repos)
+        - ⬜ **Gris clair** = TZ (Temps Masqué) - **Compté pour les taux mais exclu du temps cycle**
+        """)
+    
+    st.success("✅ Simogramme généré avec succès")
     st.pyplot(fig)
     
     # ===================================================
-    # SAVE IMAGE
+    # EXPORTS
     # ===================================================
     
     image_path = "simogramme.png"
     fig.savefig(image_path, bbox_inches="tight", dpi=300)
     
-    # ===================================================
-    # EXCEL EXPORT
-    # ===================================================
-    
     excel_path = "simogramme.xlsx"
     
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-        edited_df.to_excel(writer, sheet_name="Données", index=False)
+        # Export dataframe complet
+        df_export = edited_df.copy()
+        df_export = df_export.rename(columns={
+            "TM": "TM (Manuel seul)",
+            "TT": "TT (Tech. seul)",
+            "TTM": "TTM (Parallèle)",
+            "TR": "TR (Repos)",
+            "TZ": "TZ (Masqué)",
+            "TF": "Hachures"
+        })
+        df_export.to_excel(writer, sheet_name="Données", index=False)
+        
         workbook = writer.book
-        worksheet = workbook.create_sheet("Simogramme")
+        worksheet = workbook.create_sheet("Résultats")
         
-        worksheet["A1"] = "Référence pièce"
-        worksheet["B1"] = reference_piece
-        worksheet["A2"] = "Numéro de la machine"
-        worksheet["B2"] = numéro_machine
-        worksheet["A3"] = "PDC"
-        worksheet["B3"] = pdc
-        worksheet["A4"] = "Vitesse de coupe"
-        worksheet["B4"] = vitesse_coupe
-        worksheet["A5"] = "Vitesse d'avance"
-        worksheet["B5"] = vitesse_avance
-        worksheet["A6"] = "Date"
-        worksheet["B6"] = str(datetime.now())
+        worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
+        worksheet["A1"].font = workbook.add_font(bold=True, size=14)
+        worksheet["A3"] = "Date"
+        worksheet["B3"] = str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        worksheet["A4"] = "Référence pièce"
+        worksheet["B4"] = reference_piece
+        worksheet["A5"] = "Numéro machine"
+        worksheet["B5"] = numéro_machine
+        worksheet["A6"] = "PDC"
+        worksheet["B6"] = pdc
+        worksheet["A7"] = "Vitesse de coupe"
+        worksheet["B7"] = vitesse_coupe
+        worksheet["A8"] = "Vitesse d'avance"
+        worksheet["B8"] = vitesse_avance
         
-        worksheet["A7"] = "Coefficient habileté"
-        worksheet["B7"] = coef_habilete
-        worksheet["A8"] = "Coefficient activité"
-        worksheet["B8"] = coef_activite
-        worksheet["A9"] = "Coefficient conditions"
-        worksheet["B9"] = coef_conditions
-        worksheet["A10"] = "Coefficient stabilité"
-        worksheet["B10"] = coef_stabilite
-        worksheet["A11"] = "Coefficient JA total"
-        worksheet["B11"] = round(coef_ja_total, 2)
-        worksheet["A12"] = "Coefficient rendement"
-        worksheet["B12"] = coef_repo
-        worksheet["A13"] = "Heures travail/jour"
-        worksheet["B13"] = heures_travail
+        worksheet["A10"] = "COEFFICIENTS"
+        worksheet["A11"] = "Habileté"
+        worksheet["B11"] = coef_habilete
+        worksheet["A12"] = "Activité"
+        worksheet["B12"] = coef_activite
+        worksheet["A13"] = "Conditions"
+        worksheet["B13"] = coef_conditions
+        worksheet["A14"] = "Stabilité"
+        worksheet["B14"] = coef_stabilite
+        worksheet["A15"] = "JA Total"
+        worksheet["B15"] = round(coef_ja_total, 2)
+        worksheet["A16"] = "Rendement (REPO)"
+        worksheet["B16"] = coef_repo
         
-        worksheet["A14"] = "Temps cycle"
-        worksheet["B14"] = round(temps_cycle, 2)
-        worksheet["A15"] = "Temps machine"
-        worksheet["B15"] = round(total_machine_time, 2)
-        worksheet["A16"] = "Temps opérateur"
-        worksheet["B16"] = round(total_operator_time, 2)
-        worksheet["A17"] = "Temps attente"
-        worksheet["B17"] = round(total_wait_time, 2)
-        worksheet["A18"] = "Taux Homme"
-        worksheet["B18"] = round(taux_homme * 100, 2)
-        worksheet["A19"] = "Taux Machine"
-        worksheet["B19"] = round(taux_machine * 100, 2)
-        worksheet["A20"] = "Pièces / Heure"
-        worksheet["B20"] = round(pieces_heure, 1)
-        worksheet["A21"] = "Pièces / Jour"
-        worksheet["B21"] = round(pieces_jour, 1)
+        worksheet["A18"] = "RÉSULTATS"
+        worksheet["A19"] = "Temps machine (TT+TTM)"
+        worksheet["B19"] = round(total_machine_time, 2)
+        worksheet["A20"] = "Temps manuel (TM)"
+        worksheet["B20"] = round(total_operator_manual, 2)
+        worksheet["A21"] = "Temps parallèle (TTM)"
+        worksheet["B21"] = round(total_operator_parallel, 2)
+        worksheet["A22"] = "Temps masqué (TZ)"
+        worksheet["B22"] = round(total_masked_time, 2)
+        worksheet["A23"] = "Temps humain total (TM+TTM+TZ)"
+        worksheet["B23"] = round(temps_humain_total, 2)
+        worksheet["A24"] = "Temps manuel corrigé (TM×JA)"
+        worksheet["B24"] = round(temps_manuel_ajuste_ja, 2)
+        worksheet["A25"] = "Temps cycle final"
+        worksheet["B25"] = round(temps_cycle_final, 2)
+        worksheet["A26"] = "Taux de musculación"
+        worksheet["B26"] = round(taux_musculation, 1)
+        worksheet["A27"] = "Taux occupation homme"
+        worksheet["B27"] = round(taux_occupation_homme * 100, 1)
+        worksheet["A28"] = "Taux occupation machine"
+        worksheet["B28"] = round(taux_occupation_machine * 100, 1)
+        worksheet["A29"] = "Pièces / Heure"
+        worksheet["B29"] = round(pieces_heure, 1)
+        worksheet["A30"] = "Pièces / Jour"
+        worksheet["B30"] = round(pieces_jour, 1)
         
         img = Image(image_path)
         worksheet.add_image(img, 'D1')
     
     # ===================================================
-    # BOUTONS TÉLÉCHARGEMENT ET SAUVEGARDE
+    # SAUVEGARDE BDD avec résultats
     # ===================================================
     
-    col_buttons1, col_buttons2 = st.columns(2)
+    resultats = json.dumps({
+        'total_machine_time': total_machine_time,
+        'total_operator_manual': total_operator_manual,
+        'total_operator_parallel': total_operator_parallel,
+        'total_masked_time': total_masked_time,
+        'total_repos_time': total_repos_time,
+        'temps_humain_total': temps_humain_total,
+        'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
+        'temps_cycle_final': temps_cycle_final,
+        'taux_musculation': taux_musculation,
+        'taux_occupation_homme': taux_occupation_homme,
+        'taux_occupation_machine': taux_occupation_machine,
+        'pieces_heure': pieces_heure,
+        'pieces_jour': pieces_jour
+    })
     
-    with col_buttons1:
-        with open(excel_path, "rb") as f:
-            st.download_button(
-                "📥 Télécharger Excel",
-                f,
-                file_name="simogramme.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+    config_data = {
+        'date': str(datetime.now()),
+        'reference_piece': reference_piece,
+        'numero_machine': numéro_machine,
+        'pdc': pdc,
+        'vitesse_coupe': vitesse_coupe,
+        'vitesse_avance': vitesse_avance,
+        'coef_habilete': coef_habilete,
+        'coef_activite': coef_activite,
+        'coef_conditions': coef_conditions,
+        'coef_stabilite': coef_stabilite,
+        'coef_ja_total': coef_ja_total,
+        'coef_repo': coef_repo,
+        'heures_travail': heures_travail,
+        'temps_controle': temps_controle,
+        'frequence_controle': frequence_controle,
+        'machines': str(st.session_state["machines"]),
+        'donnees': edited_df.to_json()
+    }
     
-    with col_buttons2:
-        if st.button("💾 Sauvegarder cette configuration", use_container_width=True):
-            # Sauvegarder les données des tableaux par machine
-            donnees_tableau = {}
-            for m in st.session_state["machines"]:
-                df_key = f"df_{m}"
-                if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
-                    donnees_tableau[m] = st.session_state[df_key].to_dict('records')
-            
-            config_data = {
-                'date': str(datetime.now()),
-                'reference_piece': reference_piece,
-                'numero_machine': numéro_machine,
-                'pdc': pdc,
-                'vitesse_coupe': vitesse_coupe,
-                'vitesse_avance': vitesse_avance,
-                'coef_habilete': coef_habilete,
-                'coef_activite': coef_activite,
-                'coef_conditions': coef_conditions,
-                'coef_stabilite': coef_stabilite,
-                'coef_ja_total': coef_ja_total,
-                'coef_repo': coef_repo,
-                'heures_travail': heures_travail,
-                'machines': str(st.session_state["machines"]),
-                'donnees_tableau': json.dumps(donnees_tableau)
-            }
-            
-            save_configuration(config_data)
-            st.success("✅ Configuration sauvegardée avec succès dans l'historique!")
+    save_configuration(config_data, resultats)
+    
+    with open(excel_path, "rb") as f:
+        st.download_button(
+            "📥 Télécharger Excel",
+            f,
+            file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
+    if os.path.exists(image_path):
+        os.remove(image_path)
+    if os.path.exists(excel_path):
+        os.remove(excel_path)
 
 # ===================================================
 # HISTORIQUE
 # ===================================================
 
 if "show_history" in st.session_state and st.session_state["show_history"]:
-    st.markdown("## Historique des simulations")
+    st.markdown("## 📚 Historique des simulations")
     
     configurations = load_configurations()
     
     if configurations:
+        # Créer un dataframe simple pour l'affichage
+        history_data = []
         for config in configurations:
-            config_id, date, ref_piece, num_machine = config
-            
-            col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
-            
-            with col1:
-                st.write(f"**Date:** {date}")
-            with col2:
-                st.write(f"**Référence:** {ref_piece}")
-            with col3:
-                st.write(f"**Machine:** {num_machine}")
-            with col4:
-                if st.button(f"Charger", key=f"load_{config_id}"):
-                    if load_saved_configuration(config_id):
-                        st.session_state["show_history"] = False
-                        st.rerun()
-            with col5:
-                if st.button(f"🗑️", key=f"del_{config_id}"):
-                    delete_configuration(config_id)
-                    st.rerun()
-            
-            st.divider()
-        
-        if st.button("Fermer l'historique"):
-            st.session_state["show_history"] = False
-            st.rerun()
-    else:
-        st.info("Aucune simulation enregistrée")
-        
-        if st.button("Fermer"):
-            st.session_state["show_history"] = False
-            st.rerun()
-
-# Nettoyer l'indicateur de chargement si présent
-if "config_loaded" in st.session_state:
-    st.success("✅ Configuration chargée! Les tableaux ont été remplis avec vos données sauvegardées.")
-    if st.button("OK"):
-        st.session_state["config_loaded"] = False
-        st.rerun()
+            try:
+                resultats = json.loads(config[18]) if len(config) > 18 else {}
+                history_data.append({
+                    'Date': config[1],
+                    'Référence': config[2],
+                    'Machine': config[3],
+                    'JA Total': config[11],
+                    'Repo': config[12],
+                    'Temps cycle (s)': resultats.get('temps_cycle_final', 0),
+                    'Pièces/heure': resultats.get('pieces_heure', 
