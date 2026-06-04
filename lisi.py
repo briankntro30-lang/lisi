@@ -79,8 +79,6 @@ def init_database():
                   coef_ja_total REAL,
                   coef_repo REAL,
                   heures_travail REAL,
-                  temps_controle REAL,
-                  frequence_controle INTEGER,
                   machines TEXT,
                   donnees TEXT,
                   resultats TEXT)''')
@@ -97,14 +95,13 @@ def save_configuration(data, resultats):
                  (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
                   vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
                   coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
-                  temps_controle, frequence_controle, machines, donnees, resultats)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  machines, donnees, resultats)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (data['date'], data['reference_piece'], data['numero_machine'], 
                data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
                data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
-               data['heures_travail'], data['temps_controle'], data['frequence_controle'],
-               data['machines'], data['donnees'], resultats))
+               data['heures_travail'], data['machines'], data['donnees'], resultats))
     
     conn.commit()
     conn.close()
@@ -119,6 +116,14 @@ def load_configurations():
     
     conn.close()
     return rows
+
+def delete_configuration(config_id):
+    """Supprime une configuration de la base de données"""
+    conn = sqlite3.connect('simogramme_data.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
+    conn.commit()
+    conn.close()
 
 init_database()
 
@@ -223,22 +228,6 @@ with st.sidebar:
         step=0.5
     )
     
-    st.markdown("## Contrôle qualité")
-    
-    temps_controle = st.number_input(
-        "Temps contrôle (s)",
-        min_value=0.0,
-        value=0.0,
-        step=1.0
-    )
-    
-    frequence_controle = st.number_input(
-        "Fréquence contrôle (pièces)",
-        min_value=1,
-        value=10,
-        step=1
-    )
-    
     st.markdown("---")
     
     if "machines" not in st.session_state:
@@ -255,6 +244,10 @@ with st.sidebar:
     
     if st.button("📊 Voir historique"):
         st.session_state["show_history"] = True
+        st.rerun()
+    
+    if st.button("❌ Fermer historique"):
+        st.session_state["show_history"] = False
         st.rerun()
 
 # ===================================================
@@ -495,41 +488,26 @@ if st.button("Générer le simogramme"):
     plt.tight_layout()
     
     # ===================================================
-    # CALCULS AVEC EXCLUSION DE TZ POUR LE CYCLE
+    # CALCULS
     # ===================================================
     
-    # Temps humain total (TM + TTM) - TZ est inclus ici pour les taux
+    # Temps humain total (TM + TTM + TZ)
     temps_humain_total = total_operator_manual + total_operator_parallel + total_masked_time
-    
-    # Temps cycle de base (sans TZ et sans coefficients)
-    temps_cycle_base = total_machine_time + total_operator_manual
     
     # Application de JA uniquement sur TM
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
     
-    # Temps cycle avec JA (toujours sans TZ)
+    # Temps cycle avec JA
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
     
     # Application du coefficient REPO sur le temps cycle avec JA
-    temps_cycle_avec_repo = temps_cycle_avec_ja * coef_repo
-    
-    # Impact contrôle qualité
-    impact_controle = 0
-    if temps_controle > 0 and frequence_controle > 0:
-        temps_libre_dans_cycle = max(0, temps_cycle_avec_repo - total_machine_time - temps_manuel_ajuste_ja)
-        if temps_controle > temps_libre_dans_cycle:
-            impact_controle = (temps_controle - temps_libre_dans_cycle) / frequence_controle
-    
-    # Temps cycle final (TZ exclu)
-    temps_cycle_final = temps_cycle_avec_repo + impact_controle
+    temps_cycle_final = temps_cycle_avec_ja * coef_repo
     
     # ===================================================
     # KPI
     # ===================================================
     
     # Taux de musculación (inclut TZ)
-    # = (TM + TTM + TZ) / (TT + TTM + TM_coeff + TZ) × 100
-    denominateur_musculation = (total_machine_time - total_operator_parallel) + total_operator_parallel + temps_manuel_ajuste_ja + total_masked_time
     denominateur_musculation = total_machine_time + temps_manuel_ajuste_ja + total_masked_time
     
     taux_musculation = (temps_humain_total / denominateur_musculation * 100) if denominateur_musculation > 0 else 0
@@ -537,7 +515,7 @@ if st.button("Générer le simogramme"):
     # Taux occupation homme (inclut TZ)
     taux_occupation_homme = temps_humain_total / temps_cycle_final if temps_cycle_final > 0 else 0
     
-    # Taux occupation machine (TZ n'affecte pas la machine)
+    # Taux occupation machine
     taux_occupation_machine = total_machine_time / temps_cycle_final if temps_cycle_final > 0 else 0
     
     # Production
@@ -597,13 +575,7 @@ if st.button("Générer le simogramme"):
         st.write(f"- Temps manuel corrigé (TM_coeff): **+ {round(temps_manuel_ajuste_ja, 2)} s**")
         st.write(f"- = Temps cycle base: **{round(temps_cycle_avec_ja, 2)} s**")
         st.write(f"- Coefficient rendement (REPO): **× {coef_repo}**")
-        st.write(f"- = Temps cycle avec REPO: **{round(temps_cycle_avec_repo, 2)} s**")
-        
-        if impact_controle > 0:
-            st.write(f"- Impact contrôle qualité: **+ {round(impact_controle, 2)} s**")
-            st.write(f"- = Temps cycle final: **{round(temps_cycle_final, 2)} s**")
-        else:
-            st.write(f"- = Temps cycle final: **{round(temps_cycle_final, 2)} s**")
+        st.write(f"- = Temps cycle final: **{round(temps_cycle_final, 2)} s**")
         
         st.markdown("### 💪 Calcul du taux de musculación (inclut TZ)")
         st.write(f"- Numérateur (TM + TTM + TZ) = **{round(temps_humain_total, 2)} s**")
@@ -648,8 +620,10 @@ if st.button("Générer le simogramme"):
         workbook = writer.book
         worksheet = workbook.create_sheet("Résultats")
         
+        from openpyxl.styles import Font, Alignment
+        
         worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
-        worksheet["A1"].font = workbook.add_font(bold=True, size=14)
+        worksheet["A1"].font = Font(bold=True, size=14)
         worksheet["A3"] = "Date"
         worksheet["B3"] = str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         worksheet["A4"] = "Référence pièce"
@@ -740,8 +714,6 @@ if st.button("Générer le simogramme"):
         'coef_ja_total': coef_ja_total,
         'coef_repo': coef_repo,
         'heures_travail': heures_travail,
-        'temps_controle': temps_controle,
-        'frequence_controle': frequence_controle,
         'machines': str(st.session_state["machines"]),
         'donnees': edited_df.to_json()
     }
@@ -775,12 +747,43 @@ if "show_history" in st.session_state and st.session_state["show_history"]:
         history_data = []
         for config in configurations:
             try:
-                resultats = json.loads(config[18]) if len(config) > 18 else {}
+                # Vérifier que la config a assez d'éléments
+                if len(config) > 16:
+                    resultats = json.loads(config[16]) if config[16] else {}
+                else:
+                    resultats = {}
+                
                 history_data.append({
+                    'ID': config[0],
                     'Date': config[1],
                     'Référence': config[2],
                     'Machine': config[3],
                     'JA Total': config[11],
                     'Repo': config[12],
                     'Temps cycle (s)': resultats.get('temps_cycle_final', 0),
-                    'Pièces/heure': resultats.get('pieces_heure'),)}
+                    'Pièces/heure': resultats.get('pieces_heure', 0),
+                    'Pièces/jour': resultats.get('pieces_jour', 0)
+                })
+            except Exception as e:
+                continue
+        
+        if history_data:
+            history_df = pd.DataFrame(history_data)
+            st.dataframe(history_df, use_container_width=True)
+            
+            # Bouton pour supprimer une configuration
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                config_id_to_delete = st.number_input("ID à supprimer", min_value=0, step=1)
+            with col2:
+                if st.button("🗑️ Supprimer"):
+                    if config_id_to_delete > 0:
+                        delete_configuration(config_id_to_delete)
+                        st.success(f"Configuration {config_id_to_delete} supprimée")
+                        st.rerun()
+                    else:
+                        st.warning("Entrez un ID valide")
+        else:
+            st.info("Aucune donnée d'historique disponible")
+    else:
+        st.info("Aucune simulation enregistrée")
