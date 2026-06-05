@@ -503,6 +503,30 @@ if st.button("Générer le simogramme"):
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
     with col9:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
+        # Dentro de la sección "AFFICHAGE KPI", después de la columna 9 (TR), añades esta columna 10:
+    with col10:
+    # Calcular CODE TEMPS
+    temps_cycle_secondes = temps_cycle_final  # ya está en segundos
+    partie_entiere = int(temps_cycle_secondes)
+    fraction = temps_cycle_secondes - partie_entiere
+    
+    # Redondear al múltiplo de 5 más cercano (0.00, 0.05, 0.10, ..., 0.95)
+    multiple_5 = round(fraction * 20) / 20  # 1/20 = 0.05
+    # Ajustar para evitar 1.00 exacto
+    if multiple_5 >= 1.0:
+        multiple_5 = 0.95
+        partie_entiere += 1
+    
+    # Convertir a formato XX (00 a 95)
+    fraction_code = int(multiple_5 * 100)
+    if fraction_code == 0:
+        fraction_str = "01"
+    else:
+        fraction_str = str(fraction_code).zfill(2)
+    
+    code_temps = f"{partie_entiere}A{fraction_str}"
+    
+    st.markdown(f"""<div class="metric-card"><div class="metric-value">{code_temps}</div><div class="metric-label">CODE TEMPS</div><div class="metric-delta">({round(temps_cycle_final, 2)} s)</div></div>""", unsafe_allow_html=True)
 
     
     with st.expander("Détail des calculs"):
