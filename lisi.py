@@ -510,18 +510,15 @@ if st.button("Générer le simogramme"):
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
     with col10:
         # Calcular CODE TEMPS
-        temps_cycle_secondes = temps_cycle_final  # ya está en segundos
+        temps_cycle_secondes = temps_cycle_final
         partie_entiere = int(temps_cycle_secondes)
         fraction = temps_cycle_secondes - partie_entiere
         
-        # Redondear al múltiplo de 5 más cercano (0.00, 0.05, 0.10, ..., 0.95)
-        multiple_5 = round(fraction * 20) / 20  # 1/20 = 0.05
-        # Ajustar para evitar 1.00 exacto
+        multiple_5 = round(fraction * 20) / 20
         if multiple_5 >= 1.0:
             multiple_5 = 0.95
             partie_entiere += 1
         
-        # Convertir a formato XX (00 a 95)
         fraction_code = int(multiple_5 * 100)
         if fraction_code == 0:
             fraction_str = "01"
@@ -580,13 +577,11 @@ if st.button("Générer le simogramme"):
                 st.success("✅ Sauvegardé!")
     
     with col_btn2:
-        # Export Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_export = edited_df.copy()
             df_export.to_excel(writer, sheet_name="Données", index=False)
             
-            # Créer feuille résultats
             results_data = {
                 "Métrique": ["Temps cycle final (s)", "Temps machine total (s)", "Temps manuel TM (s)", 
                             "Taux occupation homme (%)", "Taux occupation machine (%)", "Pièces / Heure", "Pièces / Jour"],
@@ -595,10 +590,9 @@ if st.button("Générer le simogramme"):
             }
             pd.DataFrame(results_data).to_excel(writer, sheet_name="Résultats", index=False)
             
-            # Informations production
             info_data = {
-                "Paramètre": ["Date", "Référence pièce", "Numéro machine", "PDC", "Vitesse coupe", "Vitesse avance", "Coefficient JA", "Coefficient REPO"],
-                "Valeur": [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reference_piece, numéro_machine, pdc, vitesse_coupe, vitesse_avance, round(coef_ja_total, 2), coef_repo]
+                "Paramètre": ["Date", "Référence pièce", "Numéro machine", "PDC", "Vitesse coupe", "Vitesse avance", "Coefficient JA", "Coefficient REPO", "CODE TEMPS"],
+                "Valeur": [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reference_piece, numéro_machine, pdc, vitesse_coupe, vitesse_avance, round(coef_ja_total, 2), coef_repo, code_temps]
             }
             pd.DataFrame(info_data).to_excel(writer, sheet_name="Informations", index=False)
         
@@ -611,7 +605,6 @@ if st.button("Générer le simogramme"):
         )
     
     with col_btn3:
-        # Télécharger image
         img_output = io.BytesIO()
         fig.savefig(img_output, format='png', bbox_inches="tight", dpi=150, facecolor='white')
         img_output.seek(0)
@@ -619,4 +612,5 @@ if st.button("Générer le simogramme"):
             label="🖼️ Télécharger PNG",
             data=img_output,
             file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-            mime="
+            mime="image/png"
+        )
