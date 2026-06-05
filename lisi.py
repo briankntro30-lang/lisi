@@ -468,7 +468,6 @@ if st.button("Générer le simogramme"):
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
     temps_cycle_final = temps_cycle_avec_ja * coef_repo
-    temps_cycle_um = temps_cycle_final/36 
     
     taux_occupation_homme = (temps_humain_total_reel / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
     taux_occupation_machine = (total_machine_time / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
@@ -494,7 +493,7 @@ if st.button("Générer le simogramme"):
     with col5:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_homme, 1)} %</div><div class="metric-label">Taux occupation homme</div><div class="metric-delta">TM+TTM+TZ = {round(temps_humain_total_reel, 1)} s</div></div>""", unsafe_allow_html=True)
     
-    col6, col7, col8, col9 = st.columns(4)
+    col6, col7, col8, col9 = st.columns(5)
     with col6:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_machine, 1)} %</div><div class="metric-label">Taux occupation machine</div><div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div></div>""", unsafe_allow_html=True)
     with col7:
