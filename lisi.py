@@ -482,25 +482,26 @@ if st.button("Générer le simogramme"):
     
     st.markdown("## Indicateurs de performance")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True) 
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
     with col2:
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 2)} UM</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
+    with col3:    
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_machine_time, 2)} s</div><div class="metric-label">Temps machine total</div><div class="metric-delta">TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s</div></div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_operator_manual, 2)} s</div><div class="metric-label">Temps manuel (TM)</div><div class="metric-delta">×{round(coef_ja_total, 2)} JA = {round(temps_manuel_ajuste_ja, 2)} s</div></div>""", unsafe_allow_html=True)
     with col4:
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_operator_manual, 2)} s</div><div class="metric-label">Temps manuel (TM)</div><div class="metric-delta">×{round(coef_ja_total, 2)} JA = {round(temps_manuel_ajuste_ja, 2)} s</div></div>""", unsafe_allow_html=True)
+    with col5:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_homme, 1)} %</div><div class="metric-label">Taux occupation homme</div><div class="metric-delta">TM+TTM+TZ = {round(temps_humain_total_reel, 1)} s</div></div>""", unsafe_allow_html=True)
     
-    col5, col6, col7, col8 = st.columns(4)
-    with col5:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_machine, 1)} %</div><div class="metric-label">Taux occupation machine</div><div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div></div>""", unsafe_allow_html=True)
+    col6, col7, col8, col9 = st.columns(4)
     with col6:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_heure, 1)}</div><div class="metric-label">Pièces / Heure</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_machine, 1)} %</div><div class="metric-label">Taux occupation machine</div><div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div></div>""", unsafe_allow_html=True)
     with col7:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_heure, 1)}</div><div class="metric-label">Pièces / Heure</div></div>""", unsafe_allow_html=True)
     with col8:
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
+    with col9:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
     
     with st.expander("Détail des calculs"):
