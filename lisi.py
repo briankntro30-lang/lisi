@@ -502,8 +502,7 @@ if st.button("Générer le simogramme"):
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
     with col9:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
-    with col10:
-        st.write(reference_piece)
+
     
     with st.expander("Détail des calculs"):
         st.write(f"**TM (opérateur seul):** {round(total_operator_manual, 2)} s")
