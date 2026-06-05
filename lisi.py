@@ -195,6 +195,7 @@ with st.sidebar:
     st.title("Configuration")
     
     st.markdown("## Informations production")
+    numero_of = st.text_input("Numéro OF", key="num_of")
     reference_piece = st.text_input("Référence pièce", key="ref_piece")
     numéro_machine = st.text_input("Numéro de la machine", key="num_machine")
     pdc = st.text_input("PDC", key="pdc")
