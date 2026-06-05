@@ -260,7 +260,7 @@ if st.session_state.get("show_history", False):
 # ===================================================
 
 def afficher_legende():
-    st.markdown("### 📖 Légende des types de temps")
+    st.markdown("### Légende des types de temps")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.markdown("""<div style="text-align: center;"><span class="legend-color" style="background-color: #ff8c00;"></span><strong>TM</strong><span class="info-icon" title="Temps Manuel - Opérateur seul">?</span><br><small>Temps manuel</small></div>""", unsafe_allow_html=True)
