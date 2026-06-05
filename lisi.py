@@ -866,4 +866,4 @@ if st.button("Générer le simogramme"):
                 worksheet["B21"] = round(total_operator_parallel, 2)
                 worksheet["A22"] = "Temps masqué (TZ)"
                 worksheet["B22"] = round(total_masked_time, 2)
-                worksheet["A23"] = "Temps repos
+                worksheet["A23"] = "Temps repos"
