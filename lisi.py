@@ -493,7 +493,7 @@ if st.button("Générer le simogramme"):
     with col5:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_homme, 1)} %</div><div class="metric-label">Taux occupation homme</div><div class="metric-delta">TM+TTM+TZ = {round(temps_humain_total_reel, 1)} s</div></div>""", unsafe_allow_html=True)
     
-    col6, col7, col8, col9 = st.columns(5)
+    col6, col7, col8, col9, col10 = st.columns(5)
     with col6:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_machine, 1)} %</div><div class="metric-label">Taux occupation machine</div><div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div></div>""", unsafe_allow_html=True)
     with col7:
@@ -502,6 +502,8 @@ if st.button("Générer le simogramme"):
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
     with col9:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
+    with col10:
+        st.write(reference_piece)
     
     with st.expander("Détail des calculs"):
         st.write(f"**TM (opérateur seul):** {round(total_operator_manual, 2)} s")
