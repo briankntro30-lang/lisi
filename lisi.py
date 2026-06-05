@@ -486,7 +486,7 @@ if st.button("Générer le simogramme"):
     with col1:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True) 
     with col2:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 2)} UM</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 3)} UM</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
     with col3:    
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_machine_time, 2)} s</div><div class="metric-label">Temps machine total</div><div class="metric-delta">TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s</div></div>""", unsafe_allow_html=True)
     with col4:
