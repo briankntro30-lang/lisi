@@ -438,19 +438,21 @@ for m in st.session_state["machines"]:
         }
     )
     
+    # Correction du calcul automatique des débuts
     for i in range(1, len(df)):
-        prev_debut = float(df.loc[i-1, "Debut"])
-        prev_duree = float(df.loc[i-1, "Duree"])
+        prev_debut = float(df.iloc[i-1]["Debut"])
+        prev_duree = float(df.iloc[i-1]["Duree"])
         auto_debut = prev_debut + prev_duree
         
-        if pd.isna(df.loc[i, "Debut"]) or df.loc[i, "Debut"] == 0:
-            df.loc[i, "Debut"] = auto_debut
+        if pd.isna(df.iloc[i]["Debut"]) or df.iloc[i]["Debut"] == 0:
+            df.iloc[i, df.columns.get_loc("Debut")] = auto_debut
     
     # Renommer les colonnes pour le traitement interne
-    df.columns = [col.split(' ')[0] if ' ' in col else col for col in df.columns]
-    df["Fin"] = df["Debut"] + df["Duree"]
-    df["Sys"] = m
-    dfs.append(df)
+    df_copy = df.copy()
+    df_copy.columns = [col.split(' ')[0] if ' ' in col else col for col in df_copy.columns]
+    df_copy["Fin"] = df_copy["Debut"] + df_copy["Duree"]
+    df_copy["Sys"] = m
+    dfs.append(df_copy)
 
 if dfs:
     edited_df = pd.concat(dfs, ignore_index=True)
@@ -472,6 +474,11 @@ if st.button("Générer le simogramme"):
         st.error("Veuillez ajouter au moins une machine avec des données")
         st.stop()
     
+    # Vérifier et convertir les types de données
+    edited_df["Debut"] = pd.to_numeric(edited_df["Debut"], errors='coerce').fillna(0)
+    edited_df["Duree"] = pd.to_numeric(edited_df["Duree"], errors='coerce').fillna(0)
+    edited_df["Fin"] = edited_df["Debut"] + edited_df["Duree"]
+    
     fig, ax = plt.subplots(figsize=(18, 6))
     fig.patch.set_visible(False)
     ax.set_frame_on(False)
@@ -482,8 +489,12 @@ if st.button("Générer le simogramme"):
     h = 0.22
     y_op = 0
     
+    # Calcul des positions y pour chaque machine
     for i, m in enumerate(machines):
-        y_positions[m] = step * ((i // 2) + 1) * (1 if i % 2 == 0 else -1)
+        if i % 2 == 0:
+            y_positions[m] = step * ((i // 2) + 1)
+        else:
+            y_positions[m] = -step * ((i // 2) + 1)
     
     max_x = 0
     total_machine_time = 0
@@ -513,18 +524,20 @@ if st.button("Générer le simogramme"):
             line.set_clip_path(rect)
             i += spacing
     
-    for _, row in edited_df.iterrows():
-        op = str(row["Etape"])
+    for idx, row in edited_df.iterrows():
+        op = str(row["Etape"]) if pd.notna(row["Etape"]) else ""
         start = float(row["Debut"])
         temps = float(row["Duree"])
         end = start + temps
         sys = str(row["Sys"])
-        tm = bool(row["TM"])
-        tt = bool(row["TT"])
-        ttm = bool(row["TTM"])
-        tr = bool(row["TR"])
-        tz = bool(row["TZ"])
-        tf = bool(row["TF"])
+        
+        # Conversion sécurisée des booléens
+        tm = bool(row["TM"]) if "TM" in row and pd.notna(row["TM"]) else False
+        tt = bool(row["TT"]) if "TT" in row and pd.notna(row["TT"]) else False
+        ttm = bool(row["TTM"]) if "TTM" in row and pd.notna(row["TTM"]) else False
+        tr = bool(row["TR"]) if "TR" in row and pd.notna(row["TR"]) else False
+        tz = bool(row["TZ"]) if "TZ" in row and pd.notna(row["TZ"]) else False
+        tf = bool(row["TF"]) if "TF" in row and pd.notna(row["TF"]) else False
         
         if tz:
             total_masked_time += temps
@@ -537,7 +550,7 @@ if st.button("Générer le simogramme"):
                 alpha=0.4
             )
             ax.add_patch(rect)
-            if tf:
+            if tf and temps > 0 and h > 0:
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
             continue
@@ -545,15 +558,15 @@ if st.button("Générer le simogramme"):
         if tt and not ttm:
             total_machine_time += temps
             rect = Rectangle(
-                (start, y_positions[sys]),
+                (start, y_positions.get(sys, 0)),
                 temps,
                 h,
                 facecolor=COLORS["TT"],
                 edgecolor="black"
             )
             ax.add_patch(rect)
-            if tf:
-                draw_hatch(ax, rect, start, y_positions[sys], temps, h)
+            if tf and temps > 0 and h > 0:
+                draw_hatch(ax, rect, start, y_positions.get(sys, 0), temps, h)
             max_x = max(max_x, end)
         
         elif tm and not ttm:
@@ -566,29 +579,31 @@ if st.button("Générer le simogramme"):
                 edgecolor="black"
             )
             ax.add_patch(rect)
-            if tf:
+            if tf and temps > 0 and h > 0:
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
         
         elif ttm:
             total_machine_time += temps
             total_operator_parallel += temps
+            # Dessiner le rectangle vide
             rect = Rectangle(
                 (start, y_op),
                 temps,
-                y_positions[sys] - y_op,
+                y_positions.get(sys, 0) - y_op,
                 facecolor="#FFFFFF00",
                 edgecolor="black"
             )
             ax.add_patch(rect)
+            # Dessiner la diagonale
             ax.plot(
                 [start, start + temps],
-                [y_op, y_positions[sys]],
+                [y_op, y_positions.get(sys, 0)],
                 color="black",
                 linewidth=1.5
             )
-            if tf:
-                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions[sys] - y_op))
+            if tf and temps > 0:
+                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions.get(sys, 0) - y_op))
             max_x = max(max_x, end)
         
         elif tr:
@@ -602,10 +617,11 @@ if st.button("Générer le simogramme"):
                 alpha=0.6
             )
             ax.add_patch(rect)
-            if tf:
+            if tf and temps > 0 and h > 0:
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
         
+        # Ajouter le texte de l'étape
         if temps >= 0.5 and op != "" and op != "nan":
             ax.text(
                 start + temps/2,
@@ -613,28 +629,32 @@ if st.button("Générer le simogramme"):
                 op,
                 ha="center",
                 fontsize=9,
-                rotation=0
+                rotation=0,
+                wrap=True
             )
     
+    # Dessiner les lignes horizontales pour les machines
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
         ax.text(-1.5, y, m, ha="right", fontsize=14, fontweight="bold")
     
+    # Ligne opérateur
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.text(-1.5, y_op, "Opérateur", ha="right", fontsize=16, fontweight="bold")
     
     # Ajouter une légende sur le graphique
+    from matplotlib.patches import Patch
     legend_elements = [
-        Rectangle((0, 0), 1, 1, facecolor=COLORS["TM"], edgecolor='black', label='TM - Temps Manuel'),
-        Rectangle((0, 0), 1, 1, facecolor=COLORS["TT"], edgecolor='black', label='TT - Temps Machine'),
-        Rectangle((0, 0), 1, 1, facecolor=COLORS["TTM"], edgecolor='black', label='TTM - Temps Parallèle'),
-        Rectangle((0, 0), 1, 1, facecolor=COLORS["TR"], edgecolor='black', label='TR - Temps Repos'),
-        Rectangle((0, 0), 1, 1, facecolor=COLORS["TZ"], edgecolor='black', alpha=0.4, label='TZ - Temps Masqué')
+        Patch(facecolor=COLORS["TM"], edgecolor='black', label='TM - Temps Manuel'),
+        Patch(facecolor=COLORS["TT"], edgecolor='black', label='TT - Temps Machine'),
+        Patch(facecolor=COLORS["TTM"], edgecolor='black', label='TTM - Temps Parallèle'),
+        Patch(facecolor=COLORS["TR"], edgecolor='black', label='TR - Temps Repos'),
+        Patch(facecolor=COLORS["TZ"], edgecolor='black', alpha=0.4, label='TZ - Temps Masqué')
     ]
     ax.legend(handles=legend_elements, loc='upper right', framealpha=0.9)
     
     ax.set_xlim(-2, max_x + 2)
-    ax.set_ylim(-1, 1.5)
+    ax.set_ylim(-1.5, 1.5)
     ax.set_yticks([])
     ax.set_xlabel("Temps (secondes)", fontsize=12, fontweight="bold")
     ax.grid(axis="x", alpha=0.2, linestyle="--")
@@ -812,13 +832,28 @@ if st.button("Générer le simogramme"):
         try:
             with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
                 df_export = edited_df.copy()
+                # Restaurer les noms de colonnes originaux pour l'export
+                column_mapping = {
+                    'Etape': 'Etape',
+                    'Debut': 'Debut',
+                    'Duree': 'Duree',
+                    'TM': 'TM 🕐',
+                    'TT': 'TT 🤖',
+                    'TTM': 'TTM ⚡',
+                    'TR': 'TR ☕',
+                    'TZ': 'TZ ⚫',
+                    'TF': 'TF 🎨'
+                }
+                for old, new in column_mapping.items():
+                    if old in df_export.columns:
+                        df_export.rename(columns={old: new}, inplace=True)
+                
                 df_export.to_excel(writer, sheet_name="Données", index=False)
                 
                 workbook = writer.book
                 worksheet = workbook.create_sheet("Résultats")
                 
-                from openpyxl.styles import Font, Alignment, PatternFill
-                from openpyxl.utils import get_column_letter
+                from openpyxl.styles import Font, Alignment
                 
                 # En-tête
                 worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
@@ -829,41 +864,4 @@ if st.button("Générer le simogramme"):
                 worksheet["A3"] = "Date"
                 worksheet["B3"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 worksheet["A4"] = "Référence pièce"
-                worksheet["B4"] = reference_piece
-                worksheet["A5"] = "Numéro machine"
-                worksheet["B5"] = numéro_machine
-                worksheet["A6"] = "PDC"
-                worksheet["B6"] = pdc
-                worksheet["A7"] = "Vitesse de coupe"
-                worksheet["B7"] = vitesse_coupe
-                worksheet["A8"] = "Vitesse d'avance"
-                worksheet["B8"] = vitesse_avance
-                
-                # Coefficients
-                worksheet["A10"] = "COEFFICIENTS"
-                worksheet["A10"].font = Font(bold=True)
-                worksheet["A11"] = "Habileté"
-                worksheet["B11"] = coef_habilete
-                worksheet["A12"] = "Activité"
-                worksheet["B12"] = coef_activite
-                worksheet["A13"] = "Conditions"
-                worksheet["B13"] = coef_conditions
-                worksheet["A14"] = "Stabilité"
-                worksheet["B14"] = coef_stabilite
-                worksheet["A15"] = "JA Total"
-                worksheet["B15"] = round(coef_ja_total, 2)
-                worksheet["A16"] = "Rendement (REPO)"
-                worksheet["B16"] = coef_repo
-                
-                # Résultats
-                worksheet["A18"] = "RÉSULTATS"
-                worksheet["A18"].font = Font(bold=True)
-                worksheet["A19"] = "Temps machine (TT+TTM)"
-                worksheet["B19"] = round(total_machine_time, 2)
-                worksheet["A20"] = "Temps manuel (TM)"
-                worksheet["B20"] = round(total_operator_manual, 2)
-                worksheet["A21"] = "Temps parallèle (TTM)"
-                worksheet["B21"] = round(total_operator_parallel, 2)
-                worksheet["A22"] = "Temps masqué (TZ)"
-                worksheet["B22"] = round(total_masked_time, 2)
-                worksheet["A23"] = "Temps repos"
+                worksheet["
