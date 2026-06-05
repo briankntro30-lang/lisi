@@ -468,6 +468,7 @@ if st.button("Générer le simogramme"):
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
     temps_cycle_final = temps_cycle_avec_ja * coef_repo
+    temps_cycle_um = temps_cycle_final/36 
     
     taux_occupation_homme = (temps_humain_total_reel / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
     taux_occupation_machine = (total_machine_time / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
@@ -483,7 +484,8 @@ if st.button("Générer le simogramme"):
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True) 
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
     with col2:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_machine_time, 2)} s</div><div class="metric-label">Temps machine total</div><div class="metric-delta">TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s</div></div>""", unsafe_allow_html=True)
     with col3:
