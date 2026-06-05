@@ -68,6 +68,77 @@ h1, h2, h3 {
     margin-top: 5px;
 }
 
+/* Style pour les tooltips */
+.info-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-color: #6b7280;
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 16px;
+    margin-left: 5px;
+    cursor: help;
+    font-family: monospace;
+}
+
+.info-icon:hover {
+    background-color: #1f2937;
+}
+
+/* Style pour les couleurs dans le dataframe */
+.dataframe-tm {
+    background-color: #ff8c00;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.dataframe-tt {
+    background-color: #1f4fff;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.dataframe-ttm {
+    background-color: #111827;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.dataframe-tr {
+    background-color: #9ca3af;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.dataframe-tz {
+    background-color: #e5e7eb;
+    color: #374151;
+    padding: 2px 5px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.legend-color {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -276,6 +347,85 @@ with st.sidebar:
         st.rerun()
 
 # ===================================================
+# LÉGENDE
+# ===================================================
+
+def afficher_legende():
+    """Affiche la légende des couleurs du simogramme"""
+    st.markdown("### 📖 Légende des types de temps")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align: center;">
+            <span class="legend-color" style="background-color: #ff8c00;"></span>
+            <strong>TM</strong>
+            <span class="info-icon" title="Temps Manuel - Opérateur seul">?</span>
+            <br><small>Temps manuel</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align: center;">
+            <span class="legend-color" style="background-color: #1f4fff;"></span>
+            <strong>TT</strong>
+            <span class="info-icon" title="Temps Technologique - Machine seule">?</span>
+            <br><small>Temps machine</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div style="text-align: center;">
+            <span class="legend-color" style="background-color: #111827;"></span>
+            <strong>TTM</strong>
+            <span class="info-icon" title="Temps de Travail en Manuel - Opérateur et machine simultanément">?</span>
+            <br><small>Temps parallèle</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown("""
+        <div style="text-align: center;">
+            <span class="legend-color" style="background-color: #9ca3af;"></span>
+            <strong>TR</strong>
+            <span class="info-icon" title="Temps de Repos - Pause opérateur">?</span>
+            <br><small>Temps repos</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col5:
+        st.markdown("""
+        <div style="text-align: center;">
+            <span class="legend-color" style="background-color: #e5e7eb;"></span>
+            <strong>TZ</strong>
+            <span class="info-icon" title="Temps Masqué - Temps non productif">?</span>
+            <br><small>Temps masqué</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+# ===================================================
+# HEADER AVEC EXPLICATIONS
+# ===================================================
+
+st.markdown("""
+<div style="background-color: #e0e7ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+    <h3 style="margin: 0; color: #1e3a8a;">📋 Remplissage du tableau</h3>
+    <p style="margin: 5px 0 0 0;">
+        ✅ <strong>TM</strong> = Temps Manuel (opérateur seul)<br>
+        ✅ <strong>TT</strong> = Temps Technologique (machine seule)<br>
+        ✅ <strong>TTM</strong> = Temps de Travail en Manuel (opérateur + machine simultanément)<br>
+        ✅ <strong>TR</strong> = Temps de Repos<br>
+        ✅ <strong>TZ</strong> = Temps Masqué (temps non productif)
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ===================================================
 # TABLES
 # ===================================================
 
@@ -301,14 +451,15 @@ for m in st.session_state["machines"]:
         "Etape": [""],
         "Debut": [0.0],
         "Duree": [0.0],
-        "TM": [False],
-        "TT": [False],
-        "TTM": [False],
-        "TR": [False],
-        "TZ": [False],
-        "TF": [False],
+        "TM 🕐": [False],
+        "TT 🤖": [False],
+        "TTM ⚡": [False],
+        "TR ☕": [False],
+        "TZ ⚫": [False],
+        "TF 🎨": [False],
     })
     
+    # Configurer les tooltips pour chaque colonne
     df = st.data_editor(
         default_df,
         num_rows="dynamic",
@@ -316,14 +467,14 @@ for m in st.session_state["machines"]:
         use_container_width=True,
         column_config={
             "Etape": st.column_config.TextColumn("Description étape", width="medium"),
-            "Debut": st.column_config.NumberColumn("Début (s)", format="%.1f"),
-            "Duree": st.column_config.NumberColumn("Durée (s)", format="%.1f"),
-            "TM": st.column_config.CheckboxColumn("TM"),
-            "TT": st.column_config.CheckboxColumn("TT"),
-            "TTM": st.column_config.CheckboxColumn("TTM"),
-            "TR": st.column_config.CheckboxColumn("TR"),
-            "TZ": st.column_config.CheckboxColumn("TZ"),
-            "TF": st.column_config.CheckboxColumn("TF"),
+            "Debut": st.column_config.NumberColumn("Début (s)", format="%.1f", help="Temps de début de l'étape"),
+            "Duree": st.column_config.NumberColumn("Durée (s)", format="%.1f", help="Durée de l'étape en secondes"),
+            "TM 🕐": st.column_config.CheckboxColumn("TM", help="Temps Manuel - Opérateur seul"),
+            "TT 🤖": st.column_config.CheckboxColumn("TT", help="Temps Technologique - Machine seule"),
+            "TTM ⚡": st.column_config.CheckboxColumn("TTM", help="Temps de Travail en Manuel - Opérateur + machine simultanément"),
+            "TR ☕": st.column_config.CheckboxColumn("TR", help="Temps de Repos - Pause opérateur"),
+            "TZ ⚫": st.column_config.CheckboxColumn("TZ", help="Temps Masqué - Temps non productif"),
+            "TF 🎨": st.column_config.CheckboxColumn("TF", help="Temps Forfaitaire - Hachures sur le simogramme"),
         }
     )
     
@@ -335,6 +486,8 @@ for m in st.session_state["machines"]:
         if pd.isna(df.loc[i, "Debut"]) or df.loc[i, "Debut"] == 0:
             df.loc[i, "Debut"] = auto_debut
     
+    # Renommer les colonnes pour le traitement interne
+    df.columns = [col.split(' ')[0] if ' ' in col else col for col in df.columns]
     df["Fin"] = df["Debut"] + df["Duree"]
     df["Sys"] = m
     dfs.append(df)
@@ -343,6 +496,12 @@ if dfs:
     edited_df = pd.concat(dfs, ignore_index=True)
 else:
     edited_df = pd.DataFrame()
+
+# ===================================================
+# AFFICHER LÉGENDE
+# ===================================================
+
+afficher_legende()
 
 # ===================================================
 # GENERATE SIMOGRAMME
@@ -503,6 +662,16 @@ if st.button("Générer le simogramme"):
     
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.text(-1.5, y_op, "Opérateur", ha="right", fontsize=16, fontweight="bold")
+    
+    # Ajouter une légende sur le graphique
+    legend_elements = [
+        Rectangle((0, 0), 1, 1, facecolor=COLORS["TM"], edgecolor='black', label='TM - Temps Manuel'),
+        Rectangle((0, 0), 1, 1, facecolor=COLORS["TT"], edgecolor='black', label='TT - Temps Machine'),
+        Rectangle((0, 0), 1, 1, facecolor=COLORS["TTM"], edgecolor='black', label='TTM - Temps Parallèle'),
+        Rectangle((0, 0), 1, 1, facecolor=COLORS["TR"], edgecolor='black', label='TR - Temps Repos'),
+        Rectangle((0, 0), 1, 1, facecolor=COLORS["TZ"], edgecolor='black', alpha=0.4, label='TZ - Temps Masqué')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', framealpha=0.9)
     
     ax.set_xlim(-2, max_x + 2)
     ax.set_ylim(-1, 1.5)
@@ -712,106 +881,3 @@ if st.button("Générer le simogramme"):
             worksheet["B12"] = coef_activite
             worksheet["A13"] = "Conditions"
             worksheet["B13"] = coef_conditions
-            worksheet["A14"] = "Stabilité"
-            worksheet["B14"] = coef_stabilite
-            worksheet["A15"] = "JA Total"
-            worksheet["B15"] = round(coef_ja_total, 2)
-            worksheet["A16"] = "Rendement (REPO)"
-            worksheet["B16"] = coef_repo
-            
-            worksheet["A18"] = "RÉSULTATS"
-            worksheet["A19"] = "Temps machine (TT+TTM)"
-            worksheet["B19"] = round(total_machine_time, 2)
-            worksheet["A20"] = "Temps manuel (TM)"
-            worksheet["B20"] = round(total_operator_manual, 2)
-            worksheet["A21"] = "Temps parallèle (TTM)"
-            worksheet["B21"] = round(total_operator_parallel, 2)
-            worksheet["A22"] = "Temps masqué (TZ)"
-            worksheet["B22"] = round(total_masked_time, 2)
-            worksheet["A23"] = "Temps repos (TR)"
-            worksheet["B23"] = round(total_repos_time, 2)
-            worksheet["A24"] = "Temps humain total réel"
-            worksheet["B24"] = round(temps_humain_total_reel, 2)
-            worksheet["A25"] = "Temps cycle sans coefficients"
-            worksheet["B25"] = round(temps_cycle_sans_coef, 2)
-            worksheet["A26"] = "Temps manuel corrigé"
-            worksheet["B26"] = round(temps_manuel_ajuste_ja, 2)
-            worksheet["A27"] = "Temps cycle final"
-            worksheet["B27"] = round(temps_cycle_final, 2)
-            worksheet["A28"] = "Taux occupation homme"
-            worksheet["B28"] = round(taux_occupation_homme, 1)
-            worksheet["A29"] = "Taux occupation machine"
-            worksheet["B29"] = round(taux_occupation_machine, 1)
-            worksheet["A30"] = "Pièces / Heure"
-            worksheet["B30"] = round(pieces_heure, 1)
-            worksheet["A31"] = "Pièces / Jour"
-            worksheet["B31"] = round(pieces_jour, 1)
-            
-            img = Image(image_path)
-            worksheet.add_image(img, 'D1')
-        
-        with open(excel_path, "rb") as f:
-            st.download_button(
-                "📥 Exporter Excel",
-                f,
-                file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="export_btn"
-            )
-        
-        if os.path.exists(image_path):
-            os.remove(image_path)
-        if os.path.exists(excel_path):
-            os.remove(excel_path)
-
-# ===================================================
-# HISTORIQUE
-# ===================================================
-
-if "show_history" in st.session_state and st.session_state["show_history"]:
-    st.markdown("## Historique des simulations")
-    
-    configurations = load_configurations()
-    
-    if configurations:
-        history_data = []
-        for config in configurations:
-            try:
-                if len(config) > 16 and config[16]:
-                    resultats = json.loads(config[16])
-                else:
-                    resultats = {}
-                
-                history_data.append({
-                    'ID': config[0],
-                    'Date': config[1],
-                    'Référence': config[2],
-                    'Machine': config[3],
-                    'JA Total': config[11],
-                    'Repo': config[12],
-                    'Temps cycle (s)': resultats.get('temps_cycle_final', 0),
-                    'Pièces/heure': resultats.get('pieces_heure', 0),
-                    'Pièces/jour': resultats.get('pieces_jour', 0)
-                })
-            except:
-                continue
-        
-        if history_data:
-            history_df = pd.DataFrame(history_data)
-            st.dataframe(history_df, use_container_width=True)
-            
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                config_id_to_delete = st.number_input("ID à supprimer", min_value=0, step=1)
-            with col2:
-                if st.button("🗑️ Supprimer"):
-                    if config_id_to_delete > 0:
-                        delete_configuration(config_id_to_delete)
-                        st.success(f"Configuration {config_id_to_delete} supprimée")
-                        st.rerun()
-                    else:
-                        st.warning("Entrez un ID valide")
-        else:
-            st.info("Aucune donnée d'historique disponible")
-    else:
-        st.info("Aucune simulation enregistrée")
