@@ -314,12 +314,17 @@ for m in st.session_state["machines"]:
         }
     )
     
-    for i in range(1, len(df)):
-        prev_debut = float(df.iloc[i-1]["Debut"])
-        prev_duree = float(df.iloc[i-1]["Duree"])
-        auto_debut = prev_debut + prev_duree
-        if pd.isna(df.iloc[i]["Debut"]) or df.iloc[i]["Debut"] == 0:
-            df.iloc[i, df.columns.get_loc("Debut")] = auto_debut
+    # Auto-llenar SOLO para la última fila (nueva) si está vacía, respetando modificaciones manuales
+    if len(df) > 1:
+        ultima_fila = len(df) - 1
+        debut_ultimo = df.iloc[ultima_fila]["Debut"]
+        
+        # Solo auto-llenar si la última fila tiene Debut vacío o 0 (es nueva)
+        if pd.isna(debut_ultimo) or debut_ultimo == 0 or debut_ultimo == "":
+            prev_debut = float(df.iloc[ultima_fila-1]["Debut"]) if pd.notna(df.iloc[ultima_fila-1]["Debut"]) else 0
+            prev_duree = float(df.iloc[ultima_fila-1]["Duree"]) if pd.notna(df.iloc[ultima_fila-1]["Duree"]) else 0
+            auto_debut = prev_debut + prev_duree
+            df.iloc[ultima_fila, df.columns.get_loc("Debut")] = auto_debut
     
     df_copy = df.copy()
     df_copy.columns = [col.split(' ')[0] if ' ' in col else col for col in df_copy.columns]
@@ -476,7 +481,7 @@ if st.button("Générer le simogramme"):
     pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
     
-   # ===================================================
+    # ===================================================
     # AFFICHAGE KPI
     # ===================================================
     
@@ -614,5 +619,4 @@ if st.button("Générer le simogramme"):
             label="🖼️ Télécharger PNG",
             data=img_output,
             file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-            mime="image/png"
-        )
+            mime="
