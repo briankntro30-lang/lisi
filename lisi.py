@@ -89,47 +89,6 @@ h1, h2, h3 {
     background-color: #1f2937;
 }
 
-/* Style pour les couleurs dans le dataframe */
-.dataframe-tm {
-    background-color: #ff8c00;
-    color: white;
-    padding: 2px 5px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.dataframe-tt {
-    background-color: #1f4fff;
-    color: white;
-    padding: 2px 5px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.dataframe-ttm {
-    background-color: #111827;
-    color: white;
-    padding: 2px 5px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.dataframe-tr {
-    background-color: #9ca3af;
-    color: white;
-    padding: 2px 5px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.dataframe-tz {
-    background-color: #e5e7eb;
-    color: #374151;
-    padding: 2px 5px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
 .legend-color {
     display: inline-block;
     width: 20px;
@@ -183,43 +142,56 @@ def init_database():
 
 def save_configuration(data):
     """Sauvegarde une configuration dans la base de données"""
-    conn = sqlite3.connect('simogramme_data.db')
-    c = conn.cursor()
-    
-    c.execute("""INSERT INTO configurations 
-                 (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
-                  vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
-                  coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
-                  machines, donnees, resultats)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-              (data['date'], data['reference_piece'], data['numero_machine'], 
-               data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
-               data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
-               data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
-               data['heures_travail'], data['machines'], data['donnees'], data['resultats']))
-    
-    conn.commit()
-    conn.close()
-    return True
+    try:
+        conn = sqlite3.connect('simogramme_data.db')
+        c = conn.cursor()
+        
+        c.execute("""INSERT INTO configurations 
+                     (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
+                      vitesse_avance, coef_habilete, coef_activite, coef_conditions, 
+                      coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
+                      machines, donnees, resultats)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                  (data['date'], data['reference_piece'], data['numero_machine'], 
+                   data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
+                   data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
+                   data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
+                   data['heures_travail'], data['machines'], data['donnees'], data['resultats']))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Erreur sauvegarde: {str(e)}")
+        return False
 
 def load_configurations():
     """Charge toutes les configurations depuis la base de données"""
-    conn = sqlite3.connect('simogramme_data.db')
-    c = conn.cursor()
-    
-    c.execute('SELECT * FROM configurations ORDER BY date DESC')
-    rows = c.fetchall()
-    
-    conn.close()
-    return rows
+    try:
+        conn = sqlite3.connect('simogramme_data.db')
+        c = conn.cursor()
+        
+        c.execute('SELECT * FROM configurations ORDER BY date DESC')
+        rows = c.fetchall()
+        
+        conn.close()
+        return rows
+    except Exception as e:
+        st.error(f"Erreur chargement: {str(e)}")
+        return []
 
 def delete_configuration(config_id):
     """Supprime une configuration de la base de données"""
-    conn = sqlite3.connect('simogramme_data.db')
-    c = conn.cursor()
-    c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect('simogramme_data.db')
+        c = conn.cursor()
+        c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Erreur suppression: {str(e)}")
+        return False
 
 init_database()
 
@@ -260,11 +232,11 @@ with st.sidebar:
     
     st.markdown("## Informations production")
     
-    reference_piece = st.text_input("Référence pièce")
-    numéro_machine = st.text_input("Numéro de la machine")
-    pdc = st.text_input("PDC")
-    vitesse_coupe = st.text_input("Vitesse de coupe")
-    vitesse_avance = st.text_input("Vitesse d'avance")
+    reference_piece = st.text_input("Référence pièce", key="ref_piece")
+    numéro_machine = st.text_input("Numéro de la machine", key="num_machine")
+    pdc = st.text_input("PDC", key="pdc")
+    vitesse_coupe = st.text_input("Vitesse de coupe", key="vit_coupe")
+    vitesse_avance = st.text_input("Vitesse d'avance", key="vit_avance")
     
     st.markdown("## Coefficient JA (Jugement d'Allure)")
     st.info("Les coefficients sont des valeurs entre 0 et 1, la somme sera ajoutée à 1")
@@ -274,7 +246,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         value=0.0,
-        step=0.05
+        step=0.05,
+        key="habilete"
     )
     
     coef_activite = st.number_input(
@@ -282,7 +255,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         value=0.0,
-        step=0.05
+        step=0.05,
+        key="activite"
     )
     
     coef_conditions = st.number_input(
@@ -290,7 +264,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         value=0.0,
-        step=0.05
+        step=0.05,
+        key="conditions"
     )
     
     coef_stabilite = st.number_input(
@@ -298,7 +273,8 @@ with st.sidebar:
         min_value=0.0,
         max_value=1.0,
         value=0.0,
-        step=0.05
+        step=0.05,
+        key="stabilite"
     )
     
     coef_ja_total = 1 + coef_habilete + coef_activite + coef_conditions + coef_stabilite
@@ -313,7 +289,8 @@ with st.sidebar:
         min_value=1.00,
         max_value=5.00,
         value=1.00,
-        step=0.05
+        step=0.05,
+        key="repo"
     )
     
     heures_travail = st.number_input(
@@ -321,7 +298,8 @@ with st.sidebar:
         min_value=1.0,
         max_value=24.0,
         value=7.0,
-        step=0.5
+        step=0.5,
+        key="heures"
     )
     
     st.markdown("---")
@@ -409,23 +387,6 @@ def afficher_legende():
     st.markdown("---")
 
 # ===================================================
-# HEADER AVEC EXPLICATIONS
-# ===================================================
-
-st.markdown("""
-<div style="background-color: #e0e7ff; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-    <h3 style="margin: 0; color: #1e3a8a;">📋 Remplissage du tableau</h3>
-    <p style="margin: 5px 0 0 0;">
-        ✅ <strong>TM</strong> = Temps Manuel (opérateur seul)<br>
-        ✅ <strong>TT</strong> = Temps Technologique (machine seule)<br>
-        ✅ <strong>TTM</strong> = Temps de Travail en Manuel (opérateur + machine simultanément)<br>
-        ✅ <strong>TR</strong> = Temps de Repos<br>
-        ✅ <strong>TZ</strong> = Temps Masqué (temps non productif)
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# ===================================================
 # TABLES
 # ===================================================
 
@@ -459,11 +420,10 @@ for m in st.session_state["machines"]:
         "TF 🎨": [False],
     })
     
-    # Configurer les tooltips pour chaque colonne
     df = st.data_editor(
         default_df,
         num_rows="dynamic",
-        key=m,
+        key=f"table_{m}",
         use_container_width=True,
         column_config={
             "Etape": st.column_config.TextColumn("Description étape", width="medium"),
@@ -799,85 +759,111 @@ if st.button("Générer le simogramme"):
     # BOUTONS: Sauvegarder et Exporter
     # ===================================================
     
+    # Sauvegarder la simulation
+    save_data = {
+        'date': str(datetime.now()),
+        'reference_piece': reference_piece,
+        'numero_machine': numéro_machine,
+        'pdc': pdc,
+        'vitesse_coupe': vitesse_coupe,
+        'vitesse_avance': vitesse_avance,
+        'coef_habilete': coef_habilete,
+        'coef_activite': coef_activite,
+        'coef_conditions': coef_conditions,
+        'coef_stabilite': coef_stabilite,
+        'coef_ja_total': coef_ja_total,
+        'coef_repo': coef_repo,
+        'heures_travail': heures_travail,
+        'machines': str(st.session_state["machines"]),
+        'donnees': edited_df.to_json(),
+        'resultats': json.dumps({
+            'total_machine_time': total_machine_time,
+            'total_operator_manual': total_operator_manual,
+            'total_operator_parallel': total_operator_parallel,
+            'total_masked_time': total_masked_time,
+            'total_repos_time': total_repos_time,
+            'temps_humain_total_reel': temps_humain_total_reel,
+            'temps_cycle_sans_coef': temps_cycle_sans_coef,
+            'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
+            'temps_cycle_final': temps_cycle_final,
+            'taux_occupation_homme': taux_occupation_homme,
+            'taux_occupation_machine': taux_occupation_machine,
+            'pieces_heure': pieces_heure,
+            'pieces_jour': pieces_jour
+        })
+    }
+    
     col_btn1, col_btn2 = st.columns(2)
     
-    # Bouton Sauvegarder la simulation
     with col_btn1:
-        save_data = {
-            'date': str(datetime.now()),
-            'reference_piece': reference_piece,
-            'numero_machine': numéro_machine,
-            'pdc': pdc,
-            'vitesse_coupe': vitesse_coupe,
-            'vitesse_avance': vitesse_avance,
-            'coef_habilete': coef_habilete,
-            'coef_activite': coef_activite,
-            'coef_conditions': coef_conditions,
-            'coef_stabilite': coef_stabilite,
-            'coef_ja_total': coef_ja_total,
-            'coef_repo': coef_repo,
-            'heures_travail': heures_travail,
-            'machines': str(st.session_state["machines"]),
-            'donnees': edited_df.to_json(),
-            'resultats': json.dumps({
-                'total_machine_time': total_machine_time,
-                'total_operator_manual': total_operator_manual,
-                'total_operator_parallel': total_operator_parallel,
-                'total_masked_time': total_masked_time,
-                'total_repos_time': total_repos_time,
-                'temps_humain_total_reel': temps_humain_total_reel,
-                'temps_cycle_sans_coef': temps_cycle_sans_coef,
-                'temps_manuel_ajuste_ja': temps_manuel_ajuste_ja,
-                'temps_cycle_final': temps_cycle_final,
-                'taux_occupation_homme': taux_occupation_homme,
-                'taux_occupation_machine': taux_occupation_machine,
-                'pieces_heure': pieces_heure,
-                'pieces_jour': pieces_jour
-            })
-        }
-        
         if st.button("💾 Sauvegarder la simulation", key="save_btn"):
-            try:
-                save_configuration(save_data)
+            if save_configuration(save_data):
                 st.success("✅ Simulation sauvegardée avec succès!")
-            except Exception as e:
-                st.error(f"❌ Erreur lors de la sauvegarde: {str(e)}")
+            else:
+                st.error("❌ Erreur lors de la sauvegarde")
     
-    # Bouton Exporter Excel
     with col_btn2:
-        image_path = "simogramme.png"
+        # Sauvegarder l'image
+        image_path = "simogramme_temp.png"
         fig.savefig(image_path, bbox_inches="tight", dpi=300, facecolor='white', edgecolor='none')
         
-        excel_path = "simogramme.xlsx"
+        excel_path = f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
-        with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-            df_export = edited_df.copy()
-            df_export.to_excel(writer, sheet_name="Données", index=False)
-            
-            workbook = writer.book
-            worksheet = workbook.create_sheet("Résultats")
-            
-            from openpyxl.styles import Font
-            
-            worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
-            worksheet["A1"].font = Font(bold=True, size=14)
-            worksheet["A3"] = "Date"
-            worksheet["B3"] = str(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-            worksheet["A4"] = "Référence pièce"
-            worksheet["B4"] = reference_piece
-            worksheet["A5"] = "Numéro machine"
-            worksheet["B5"] = numéro_machine
-            worksheet["A6"] = "PDC"
-            worksheet["B6"] = pdc
-            worksheet["A7"] = "Vitesse de coupe"
-            worksheet["B7"] = vitesse_coupe
-            worksheet["A8"] = "Vitesse d'avance"
-            worksheet["B8"] = vitesse_avance
-            
-            worksheet["A10"] = "COEFFICIENTS"
-            worksheet["A11"] = "Habileté"
-            worksheet["B11"] = coef_habilete
-            worksheet["A12"] = "Activité"
-            worksheet["B12"] = coef_activite
-            worksheet["A13"] = "Conditions"
-            worksheet["B13"] = coef_conditions
+        try:
+            with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+                df_export = edited_df.copy()
+                df_export.to_excel(writer, sheet_name="Données", index=False)
+                
+                workbook = writer.book
+                worksheet = workbook.create_sheet("Résultats")
+                
+                from openpyxl.styles import Font, Alignment, PatternFill
+                from openpyxl.utils import get_column_letter
+                
+                # En-tête
+                worksheet["A1"] = "SIMULATEUR SIMOGRAMME"
+                worksheet["A1"].font = Font(bold=True, size=14)
+                worksheet.merge_cells('A1:D1')
+                
+                # Informations production
+                worksheet["A3"] = "Date"
+                worksheet["B3"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                worksheet["A4"] = "Référence pièce"
+                worksheet["B4"] = reference_piece
+                worksheet["A5"] = "Numéro machine"
+                worksheet["B5"] = numéro_machine
+                worksheet["A6"] = "PDC"
+                worksheet["B6"] = pdc
+                worksheet["A7"] = "Vitesse de coupe"
+                worksheet["B7"] = vitesse_coupe
+                worksheet["A8"] = "Vitesse d'avance"
+                worksheet["B8"] = vitesse_avance
+                
+                # Coefficients
+                worksheet["A10"] = "COEFFICIENTS"
+                worksheet["A10"].font = Font(bold=True)
+                worksheet["A11"] = "Habileté"
+                worksheet["B11"] = coef_habilete
+                worksheet["A12"] = "Activité"
+                worksheet["B12"] = coef_activite
+                worksheet["A13"] = "Conditions"
+                worksheet["B13"] = coef_conditions
+                worksheet["A14"] = "Stabilité"
+                worksheet["B14"] = coef_stabilite
+                worksheet["A15"] = "JA Total"
+                worksheet["B15"] = round(coef_ja_total, 2)
+                worksheet["A16"] = "Rendement (REPO)"
+                worksheet["B16"] = coef_repo
+                
+                # Résultats
+                worksheet["A18"] = "RÉSULTATS"
+                worksheet["A18"].font = Font(bold=True)
+                worksheet["A19"] = "Temps machine (TT+TTM)"
+                worksheet["B19"] = round(total_machine_time, 2)
+                worksheet["A20"] = "Temps manuel (TM)"
+                worksheet["B20"] = round(total_operator_manual, 2)
+                worksheet["A21"] = "Temps parallèle (TTM)"
+                worksheet["B21"] = round(total_operator_parallel, 2)
+                worksheet["A22"] = "Temps masqué (TZ)"
+                worksheet["B22"] = round(total_masked_time, 2)
+                worksheet["A23"] = "Temps repos
