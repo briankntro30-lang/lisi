@@ -864,4 +864,41 @@ if st.button("Générer le simogramme"):
                 worksheet["A3"] = "Date"
                 worksheet["B3"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 worksheet["A4"] = "Référence pièce"
-                worksheet["
+                worksheet["B4"] = reference_piece
+                worksheet["A5"] = "Numéro machine"
+                worksheet["B5"] = numéro_machine
+                worksheet["A6"] = "PDC"
+                worksheet["B6"] = pdc
+                worksheet["A7"] = "Vitesse de coupe"
+                worksheet["B7"] = vitesse_coupe
+                worksheet["A8"] = "Vitesse d'avance"
+                worksheet["B8"] = vitesse_avance
+                
+                # Coefficients
+                worksheet["A10"] = "COEFFICIENTS"
+                worksheet["A10"].font = Font(bold=True)
+                worksheet["A11"] = "Habileté"
+                worksheet["B11"] = coef_habilete
+                worksheet["A12"] = "Activité"
+                worksheet["B12"] = coef_activite
+                worksheet["A13"] = "Conditions"
+                worksheet["B13"] = coef_conditions
+                worksheet["A14"] = "Stabilité"
+                worksheet["B14"] = coef_stabilite
+                worksheet["A15"] = "JA Total"
+                worksheet["B15"] = round(coef_ja_total, 2)
+                worksheet["A16"] = "Rendement (REPO)"
+                worksheet["B16"] = coef_repo
+                
+                # Résultats
+                worksheet["A18"] = "RÉSULTATS"
+                worksheet["A18"].font = Font(bold=True)
+                worksheet["A19"] = "Temps machine (TT+TTM)"
+                worksheet["B19"] = round(total_machine_time, 2)
+                worksheet["A20"] = "Temps manuel (TM)"
+                worksheet["B20"] = round(total_operator_manual, 2)
+                worksheet["A21"] = "Temps parallèle (TTM)"
+                worksheet["B21"] = round(total_operator_parallel, 2)
+                worksheet["A22"] = "Temps masqué (TZ)"
+                worksheet["B22"] = round(total_masked_time, 2)
+            
