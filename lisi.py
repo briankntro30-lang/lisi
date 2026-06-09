@@ -428,7 +428,7 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
             ax.plot([start, start + temps], [y_op, y_positions.get(sys, 0)], color="black", linewidth=1.5)
             if tf and temps > 0:
-                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions.get(sys, 0) - y_op))
+                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions.get(sys, 0) - y_op)+h)
             max_x = max(max_x, end)
         elif tr:
             total_repos_time += temps
