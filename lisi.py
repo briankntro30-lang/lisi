@@ -412,7 +412,7 @@ if st.button("Générer le simogramme"):
             rect = Rectangle((start, y_positions.get(sys, 0)), temps, h, facecolor=COLORS["TT"], edgecolor="black")
             ax.add_patch(rect)
             if tf and temps > 0 and h > 0:
-                draw_hatch(ax, rect, start, y_positions.get(sys, 0), temps, h)
+                draw_hatch(ax, rect, start, y_positions.get(sys, 0), temps, -h)
             max_x = max(max_x, end)
         elif tm and not ttm:
             total_operator_manual += temps
@@ -428,7 +428,7 @@ if st.button("Générer le simogramme"):
             ax.add_patch(rect)
             ax.plot([start, start + temps], [y_op, y_positions.get(sys, 0)], color="black", linewidth=1.5)
             if tf and temps > 0:
-                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions.get(sys, 0) - y_op + h))
+                draw_hatch(ax, rect, start, y_op, temps, abs(y_positions.get(sys, 0) - y_op))
             max_x = max(max_x, end)
         elif tr:
             total_repos_time += temps
