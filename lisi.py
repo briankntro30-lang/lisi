@@ -470,18 +470,18 @@ if st.button("Générer le simogramme"):
                         f'<div class="metric-label">{label}</div>'
                         f'<div class="metric-delta">{delta}</div></div>',unsafe_allow_html=True)
     c1,c2,c3,c4,c5=st.columns(5)
-    kpi(c1,f"{round(cyc_fin,4)} s","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c2,f"{round(cyc_fin/36,4)} UM","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c3,f"{round(tm_total,4)} s","Temps machine total",
+    kpi(c1,f"{round(cyc_fin,2)} s","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c2,f"{round(cyc_fin/36,3)} UM","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c3,f"{round(tm_total,2)} s","Temps machine total",
         f"TT:{round(tm_total-par_total,4)}s TTM:{round(par_total,4)}s")
-    kpi(c4,f"{round(man_total,4)} s","Temps manuel (TM)",
-        f"×{round(coef_ja_total,4)} JA = {round(man_ja,4)} s")
-    kpi(c5,f"{round(taux_h,2)} %","Taux occupation homme",f"TM+TTM+TZ = {round(hum,4)} s")
+    kpi(c4,f"{round(man_total,2)} s","Temps manuel (TM)",
+        f"×{round(coef_ja_total,2)} JA = {round(man_ja,4)} s")
+    kpi(c5,f"{round(taux_h,2)} %","Taux occupation homme",f"TM+TTM+TZ = {round(hum,2)} s")
     c6,c7,c8,c9=st.columns(4)
-    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM = {round(tm_total,4)} s")
+    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM = {round(tm_total,2)} s")
     kpi(c7,f"{round(p_h,2)}","Pièces / Heure")
     kpi(c8,f"{round(p_j,2)}","Pièces / Jour")
-    kpi(c9,f"{round(rep_total,4)} s","Temps repos (TR)")
+    kpi(c9,f"{round(rep_total,2)} s","Temps repos (TR)")
 
     with st.expander("Détail des calculs"):
         for k,v in [
