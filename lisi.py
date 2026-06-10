@@ -177,9 +177,8 @@ if st.session_state["loaded_config"] is not None:
     except Exception:
         machines_r = ["M1"]
     st.session_state["machines"] = machines_r
-    
-        try:
-            donnees_str = cfg.get("donnees", "")
+ try:
+    donnees_str = cfg.get("donnees", "")
 
     if donnees_str:
         # Leer el JSON desde memoria (evita que pandas lo interprete como un archivo)
