@@ -6,9 +6,9 @@ from datetime import datetime
 import sqlite3
 import json
 import io
+import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
-from openpyxl.drawing.image import Image as XLImage
 
 # ===================================================
 # CONFIG
@@ -101,8 +101,10 @@ st.image(LOGO_URL, width=250)
 # DATABASE SETUP
 # ===================================================
 
+DB_PATH = os.path.join(os.path.expanduser("~"), "simogramme_data.db")
+
 def init_database():
-    conn = sqlite3.connect('simogramme_data.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,7 +118,7 @@ def init_database():
 
 def save_configuration(data):
     try:
-        conn = sqlite3.connect('simogramme_data.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("""INSERT INTO configurations 
                      (date, reference_piece, numero_machine, pdc, vitesse_coupe, 
@@ -124,7 +126,7 @@ def save_configuration(data):
                       coef_stabilite, coef_ja_total, coef_repo, heures_travail, 
                       machines, donnees, resultats)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                  (data['date'], data['reference_piece'], data['numero_machine'], 
+                  (data['date'], data['reference_piece'], data['numero_machine'],
                    data['pdc'], data['vitesse_coupe'], data['vitesse_avance'],
                    data['coef_habilete'], data['coef_activite'], data['coef_conditions'],
                    data['coef_stabilite'], data['coef_ja_total'], data['coef_repo'],
@@ -138,7 +140,7 @@ def save_configuration(data):
 
 def load_configurations():
     try:
-        conn = sqlite3.connect('simogramme_data.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT * FROM configurations ORDER BY date DESC')
         rows = c.fetchall()
@@ -150,7 +152,7 @@ def load_configurations():
 
 def delete_configuration(config_id):
     try:
-        conn = sqlite3.connect('simogramme_data.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
         conn.commit()
@@ -168,7 +170,7 @@ init_database()
 
 def login():
     st.markdown("## Connexion - Simogramme")
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         user = st.text_input("Utilisateur")
         pwd = st.text_input("Mot de passe", type="password")
@@ -193,7 +195,7 @@ if not st.session_state["logged_in"]:
 with st.sidebar:
     st.image(LOGO_URL, width=220)
     st.title("Configuration")
-    
+
     st.markdown("## Informations production")
     numero_of = st.text_input("Numéro OF", key="num_of")
     reference_piece = st.text_input("Référence pièce", key="ref_piece")
@@ -201,29 +203,29 @@ with st.sidebar:
     pdc = st.text_input("PDC", key="pdc")
     vitesse_coupe = st.text_input("Vitesse de coupe", key="vit_coupe")
     vitesse_avance = st.text_input("Vitesse d'avance", key="vit_avance")
-    
+
     st.markdown("## Coefficient JA (Jugement d'Allure)")
     st.info("Les coefficients sont des valeurs entre 0 et 1, la somme sera ajoutée à 1")
-    
+
     coef_habilete = st.number_input("Coefficient d'habileté", min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="habilete")
     coef_activite = st.number_input("Coefficient d'activité", min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="activite")
     coef_conditions = st.number_input("Coefficient des conditions de travail", min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="conditions")
     coef_stabilite = st.number_input("Coefficient de stabilité", min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="stabilite")
     coef_ja_total = 1 + coef_habilete + coef_activite + coef_conditions + coef_stabilite
     st.metric("Coefficient JA total", f"{coef_ja_total:.2f}")
-    
+
     st.markdown("## Coefficient de rendement opérateur")
     coef_repo = st.number_input("Coefficient de rendement opérateur", min_value=1.00, max_value=5.00, value=1.00, step=0.05, key="repo")
     heures_travail = st.number_input("Heures de travail / jour", min_value=1.0, max_value=24.0, value=7.0, step=0.5, key="heures")
-    
+
     st.markdown("---")
     if "machines" not in st.session_state:
         st.session_state["machines"] = ["M1"]
-    
+
     if st.button("➕ Ajouter machine"):
-        st.session_state["machines"].append(f"M{len(st.session_state['machines'])+1}")
+        st.session_state["machines"].append(f"M{len(st.session_state['machines']) + 1}")
         st.rerun()
-    
+
     st.markdown("---")
     st.markdown("## Historique des simulations")
     if st.button("📊 Voir historique"):
@@ -242,13 +244,20 @@ if st.session_state.get("show_history", False):
     configurations = load_configurations()
     if configurations:
         for config in configurations:
-            with st.expander(f"Simulation du {config[1]}"):
+            with st.expander(f"Simulation du {config[1]} — Pièce: {config[2]}"):
                 st.write(f"**Référence pièce:** {config[2]}")
                 st.write(f"**Numéro machine:** {config[3]}")
                 st.write(f"**PDC:** {config[4]}")
                 st.write(f"**Vitesse de coupe:** {config[5]}")
                 st.write(f"**Vitesse d'avance:** {config[6]}")
-                if st.button(f"🗑️ Supprimer", key=f"del_{config[0]}"):
+                st.write(f"**Coef JA:** {config[11]:.2f} | **Coef REPO:** {config[12]}")
+                try:
+                    resultats = json.loads(config[16])
+                    st.write(f"**Temps cycle final:** {round(resultats.get('temps_cycle_final', 0), 2)} s")
+                    st.write(f"**Pièces/heure:** {round(resultats.get('pieces_heure', 0), 1)} | **Pièces/jour:** {round(resultats.get('pieces_jour', 0), 1)}")
+                except Exception:
+                    pass
+                if st.button(f"🗑️ Supprimer", key=f"del_hist_{config[0]}"):
                     if delete_configuration(config[0]):
                         st.success("Simulation supprimée!")
                         st.rerun()
@@ -292,13 +301,13 @@ for m in st.session_state["machines"]:
                 st.rerun()
         else:
             st.write("")
-    
+
     default_df = pd.DataFrame({
         "Etape": [""], "Debut": [0.0], "Duree": [0.0],
         "TM 🕐": [False], "TT 🤖": [False], "TTM ⚡": [False],
         "TR ☕": [False], "TZ ⚫": [False], "TF 🎨": [False],
     })
-    
+
     df = st.data_editor(
         default_df, num_rows="dynamic", key=f"table_{m}", use_container_width=True,
         column_config={
@@ -313,19 +322,17 @@ for m in st.session_state["machines"]:
             "TF 🎨": st.column_config.CheckboxColumn("TF"),
         }
     )
-    
-    # Auto-llenar SOLO para la última fila (nueva) si está vacía, respetando modificaciones manuales
+
+    # Auto-fill Debut for new last row only
     if len(df) > 1:
         ultima_fila = len(df) - 1
         debut_ultimo = df.iloc[ultima_fila]["Debut"]
-        
-        # Solo auto-llenar si la última fila tiene Debut vacío o 0 (es nueva)
-        if pd.isna(debut_ultimo) or debut_ultimo == 0 or debut_ultimo == "":
-            prev_debut = float(df.iloc[ultima_fila-1]["Debut"]) if pd.notna(df.iloc[ultima_fila-1]["Debut"]) else 0
-            prev_duree = float(df.iloc[ultima_fila-1]["Duree"]) if pd.notna(df.iloc[ultima_fila-1]["Duree"]) else 0
-            auto_debut = prev_debut + prev_duree
-            df.iloc[ultima_fila, df.columns.get_loc("Debut")] = auto_debut
-    
+        if pd.isna(debut_ultimo) or debut_ultimo == 0:
+            prev_debut = float(df.iloc[ultima_fila - 1]["Debut"]) if pd.notna(df.iloc[ultima_fila - 1]["Debut"]) else 0
+            prev_duree = float(df.iloc[ultima_fila - 1]["Duree"]) if pd.notna(df.iloc[ultima_fila - 1]["Duree"]) else 0
+            df.iloc[ultima_fila, df.columns.get_loc("Debut")] = prev_debut + prev_duree
+
+    # Normalize column names: strip emoji suffixes
     df_copy = df.copy()
     df_copy.columns = [col.split(' ')[0] if ' ' in col else col for col in df_copy.columns]
     df_copy["Fin"] = df_copy["Debut"] + df_copy["Duree"]
@@ -347,57 +354,59 @@ if st.button("Générer le simogramme"):
     if edited_df.empty:
         st.error("Veuillez ajouter au moins une machine avec des données")
         st.stop()
-    
+
     edited_df["Debut"] = pd.to_numeric(edited_df["Debut"], errors='coerce').fillna(0)
     edited_df["Duree"] = pd.to_numeric(edited_df["Duree"], errors='coerce').fillna(0)
     edited_df["Fin"] = edited_df["Debut"] + edited_df["Duree"]
-    
+
     fig, ax = plt.subplots(figsize=(18, 6))
-    fig.patch.set_visible(False)
+    fig.patch.set_facecolor('white')
+    fig.patch.set_visible(True)
+    ax.set_facecolor('white')
     ax.set_frame_on(False)
-    
+
     machines = st.session_state["machines"]
     y_positions = {}
     step = 0.6
     h = 0.22
     y_op = 0
-    
+
     for i, m in enumerate(machines):
         if i % 2 == 0:
             y_positions[m] = step * ((i // 2) + 1)
         else:
             y_positions[m] = -step * ((i // 2) + 1)
-    
+
     max_x = 0
     total_machine_time = 0
     total_operator_manual = 0
     total_operator_parallel = 0
     total_repos_time = 0
     total_masked_time = 0
-    
+
     COLORS = {"TM": "#ff8c00", "TT": "#1f4fff", "TTM": "#111827", "TR": "#9ca3af", "TZ": "#e5e7eb"}
-    
+
     def draw_hatch(ax, rect, x, y, w, ht, spacing=0.2):
         i = 0
         while i < w + ht:
             line, = ax.plot([x + i, x + i - ht], [y, y + ht], color="black", linewidth=0.6, alpha=0.6)
             line.set_clip_path(rect)
             i += spacing
-    
+
     for idx, row in edited_df.iterrows():
         op = str(row["Etape"]) if pd.notna(row["Etape"]) else ""
         start = float(row["Debut"])
         temps = float(row["Duree"])
         end = start + temps
         sys = str(row["Sys"])
-        
-        tm = bool(row["TM"]) if "TM" in row and pd.notna(row["TM"]) else False
-        tt = bool(row["TT"]) if "TT" in row and pd.notna(row["TT"]) else False
+
+        tm  = bool(row["TM"])  if "TM"  in row and pd.notna(row["TM"])  else False
+        tt  = bool(row["TT"])  if "TT"  in row and pd.notna(row["TT"])  else False
         ttm = bool(row["TTM"]) if "TTM" in row and pd.notna(row["TTM"]) else False
-        tr = bool(row["TR"]) if "TR" in row and pd.notna(row["TR"]) else False
-        tz = bool(row["TZ"]) if "TZ" in row and pd.notna(row["TZ"]) else False
-        tf = bool(row["TF"]) if "TF" in row and pd.notna(row["TF"]) else False
-        
+        tr  = bool(row["TR"])  if "TR"  in row and pd.notna(row["TR"])  else False
+        tz  = bool(row["TZ"])  if "TZ"  in row and pd.notna(row["TZ"])  else False
+        tf  = bool(row["TF"])  if "TF"  in row and pd.notna(row["TF"])  else False
+
         if tz:
             total_masked_time += temps
             rect = Rectangle((start, y_op), temps, h, facecolor=COLORS["TZ"], edgecolor="black", alpha=0.4)
@@ -406,7 +415,7 @@ if st.button("Générer le simogramme"):
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
             continue
-        
+
         if tt and not ttm:
             total_machine_time += temps
             rect = Rectangle((start, y_positions.get(sys, 0)), temps, h, facecolor=COLORS["TT"], edgecolor="black")
@@ -437,17 +446,17 @@ if st.button("Générer le simogramme"):
             if tf and temps > 0 and h > 0:
                 draw_hatch(ax, rect, start, y_op, temps, h)
             max_x = max(max_x, end)
-        
+
         if temps >= 0.5 and op != "" and op != "nan":
-            ax.text(start + temps/2, y_op - 0.18, op, ha="center", fontsize=9, rotation=0, wrap=True)
-    
+            ax.text(start + temps / 2, y_op - 0.18, op, ha="center", fontsize=9, rotation=0, wrap=True)
+
     for m, y in y_positions.items():
         ax.hlines(y, 0, max_x, color="black", linewidth=1.5)
         ax.text(-1.5, y, m, ha="right", fontsize=14, fontweight="bold")
-    
+
     ax.hlines(y_op, 0, max_x, color="black", linewidth=2)
     ax.text(-1.5, y_op, "Opérateur", ha="right", fontsize=16, fontweight="bold")
-    
+
     from matplotlib.patches import Patch
     legend_elements = [
         Patch(facecolor=COLORS["TM"], edgecolor='black', label='TM - Temps Manuel'),
@@ -457,49 +466,61 @@ if st.button("Générer le simogramme"):
         Patch(facecolor=COLORS["TZ"], edgecolor='black', alpha=0.4, label='TZ - Temps Masqué')
     ]
     ax.legend(handles=legend_elements, loc='upper right', framealpha=0.9)
-    
+
     ax.set_xlim(-2, max_x + 2)
     ax.set_ylim(-1.5, 1.5)
     ax.set_yticks([])
     ax.set_xlabel("Temps (secondes)", fontsize=12, fontweight="bold")
     ax.grid(axis="x", alpha=0.2, linestyle="--")
     plt.tight_layout()
-    
+
     # ===================================================
     # CALCULS
     # ===================================================
-    
+
     temps_humain_total_reel = total_operator_manual + total_operator_parallel + total_masked_time
     temps_cycle_sans_coef = total_machine_time + total_operator_manual
     temps_manuel_ajuste_ja = total_operator_manual * coef_ja_total
     temps_cycle_avec_ja = total_machine_time + temps_manuel_ajuste_ja
     temps_cycle_final = temps_cycle_avec_ja * coef_repo
-    
+
     taux_occupation_homme = (temps_humain_total_reel / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
     taux_occupation_machine = (total_machine_time / temps_cycle_sans_coef * 100) if temps_cycle_sans_coef > 0 else 0
-    
+
     pieces_heure = 3600 / temps_cycle_final if temps_cycle_final > 0 else 0
     pieces_jour = pieces_heure * heures_travail
-    
+
+    # Code temps (kept for Excel only)
+    temps_cycle_secondes = temps_cycle_final
+    partie_entiere = int(temps_cycle_secondes)
+    fraction = temps_cycle_secondes - partie_entiere
+    multiple_5 = round(fraction * 20) / 20
+    if multiple_5 >= 1.0:
+        multiple_5 = 0.95
+        partie_entiere += 1
+    fraction_code = int(multiple_5 * 100)
+    fraction_str = "01" if fraction_code == 0 else str(fraction_code).zfill(2)
+    code_temps = f"{partie_entiere}A{fraction_str}"
+
     # ===================================================
-    # AFFICHAGE KPI
+    # AFFICHAGE KPI (sans CODE TEMPS)
     # ===================================================
-    
+
     st.markdown("## Indicateurs de performance")
-    
+
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True) 
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final, 2)} s</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final/36, 3)} UM</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
-    with col3:    
+        st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(temps_cycle_final / 36, 3)} UM</div><div class="metric-label">Temps cycle final</div><div class="metric-delta">×{coef_repo} repo</div></div>""", unsafe_allow_html=True)
+    with col3:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_machine_time, 2)} s</div><div class="metric-label">Temps machine total</div><div class="metric-delta">TT: {round(total_machine_time - total_operator_parallel, 2)} s, TTM: {round(total_operator_parallel, 2)} s</div></div>""", unsafe_allow_html=True)
     with col4:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_operator_manual, 2)} s</div><div class="metric-label">Temps manuel (TM)</div><div class="metric-delta">×{round(coef_ja_total, 2)} JA = {round(temps_manuel_ajuste_ja, 2)} s</div></div>""", unsafe_allow_html=True)
     with col5:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_homme, 1)} %</div><div class="metric-label">Taux occupation homme</div><div class="metric-delta">TM+TTM+TZ = {round(temps_humain_total_reel, 1)} s</div></div>""", unsafe_allow_html=True)
-    
-    col6, col7, col8, col9, col10 = st.columns(5)
+
+    col6, col7, col8, col9 = st.columns(4)
     with col6:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(taux_occupation_machine, 1)} %</div><div class="metric-label">Taux occupation machine</div><div class="metric-delta">TT+TTM = {round(total_machine_time, 1)} s</div></div>""", unsafe_allow_html=True)
     with col7:
@@ -508,27 +529,7 @@ if st.button("Générer le simogramme"):
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(pieces_jour, 1)}</div><div class="metric-label">Pièces / Jour</div></div>""", unsafe_allow_html=True)
     with col9:
         st.markdown(f"""<div class="metric-card"><div class="metric-value">{round(total_repos_time, 2)} s</div><div class="metric-label">Temps repos (TR)</div></div>""", unsafe_allow_html=True)
-    with col10:
-        # Calcular CODE TEMPS
-        temps_cycle_secondes = temps_cycle_final
-        partie_entiere = int(temps_cycle_secondes)
-        fraction = temps_cycle_secondes - partie_entiere
-        
-        multiple_5 = round(fraction * 20) / 20
-        if multiple_5 >= 1.0:
-            multiple_5 = 0.95
-            partie_entiere += 1
-        
-        fraction_code = int(multiple_5 * 100)
-        if fraction_code == 0:
-            fraction_str = "01"
-        else:
-            fraction_str = str(fraction_code).zfill(2)
-        
-        code_temps = f"{partie_entiere}A{fraction_str}"
-        
-        st.markdown(f"""<div class="metric-card"><div class="metric-value">{code_temps}</div><div class="metric-label">CODE TEMPS</div><div class="metric-delta">({round(temps_cycle_final, 2)} s)</div></div>""", unsafe_allow_html=True)
-    
+
     with st.expander("Détail des calculs"):
         st.write(f"**TM (opérateur seul):** {round(total_operator_manual, 2)} s")
         st.write(f"**TTM (parallèle):** {round(total_operator_parallel, 2)} s")
@@ -542,14 +543,15 @@ if st.button("Générer le simogramme"):
         st.write(f"**Temps cycle avec JA:** {round(temps_cycle_avec_ja, 2)} s")
         st.write(f"**Coefficient REPO:** ×{coef_repo}")
         st.write(f"**Temps cycle final:** {round(temps_cycle_final, 2)} s")
-    
+        st.write(f"**CODE TEMPS:** {code_temps}")
+
     st.success("Simogramme généré avec succès")
     st.pyplot(fig)
-    
+
     # ===================================================
     # BOUTONS
     # ===================================================
-    
+
     save_data = {
         'date': str(datetime.now()),
         'reference_piece': reference_piece,
@@ -566,36 +568,52 @@ if st.button("Générer le simogramme"):
         'heures_travail': heures_travail,
         'machines': str(st.session_state["machines"]),
         'donnees': edited_df.to_json(),
-        'resultats': json.dumps({'total_machine_time': total_machine_time, 'total_operator_manual': total_operator_manual, 'total_operator_parallel': total_operator_parallel, 'total_masked_time': total_masked_time, 'total_repos_time': total_repos_time, 'temps_cycle_final': temps_cycle_final, 'pieces_heure': pieces_heure, 'pieces_jour': pieces_jour})
+        'resultats': json.dumps({
+            'total_machine_time': total_machine_time,
+            'total_operator_manual': total_operator_manual,
+            'total_operator_parallel': total_operator_parallel,
+            'total_masked_time': total_masked_time,
+            'total_repos_time': total_repos_time,
+            'temps_cycle_final': temps_cycle_final,
+            'pieces_heure': pieces_heure,
+            'pieces_jour': pieces_jour
+        })
     }
-    
+
     col_btn1, col_btn2, col_btn3 = st.columns(3)
-    
+
     with col_btn1:
         if st.button("💾 Sauvegarder", key="save_btn"):
             if save_configuration(save_data):
                 st.success("✅ Sauvegardé!")
-    
+
     with col_btn2:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_export = edited_df.copy()
             df_export.to_excel(writer, sheet_name="Données", index=False)
-            
+
             results_data = {
-                "Métrique": ["Temps cycle final (s)", "Temps machine total (s)", "Temps manuel TM (s)", 
-                            "Taux occupation homme (%)", "Taux occupation machine (%)", "Pièces / Heure", "Pièces / Jour"],
-                "Valeur": [round(temps_cycle_final, 2), round(total_machine_time, 2), round(total_operator_manual, 2),
-                          round(taux_occupation_homme, 1), round(taux_occupation_machine, 1), round(pieces_heure, 1), round(pieces_jour, 1)]
+                "Métrique": ["Temps cycle final (s)", "Temps machine total (s)", "Temps manuel TM (s)",
+                             "Taux occupation homme (%)", "Taux occupation machine (%)",
+                             "Pièces / Heure", "Pièces / Jour", "CODE TEMPS"],
+                "Valeur": [round(temps_cycle_final, 2), round(total_machine_time, 2),
+                           round(total_operator_manual, 2), round(taux_occupation_homme, 1),
+                           round(taux_occupation_machine, 1), round(pieces_heure, 1),
+                           round(pieces_jour, 1), code_temps]
             }
             pd.DataFrame(results_data).to_excel(writer, sheet_name="Résultats", index=False)
-            
+
             info_data = {
-                "Paramètre": ["Date", "Référence pièce", "Numéro machine", "PDC", "Vitesse coupe", "Vitesse avance", "Coefficient JA", "Coefficient REPO", "CODE TEMPS"],
-                "Valeur": [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reference_piece, numéro_machine, pdc, vitesse_coupe, vitesse_avance, round(coef_ja_total, 2), coef_repo, code_temps]
+                "Paramètre": ["Date", "Référence pièce", "Numéro machine", "PDC",
+                              "Vitesse coupe", "Vitesse avance", "Coefficient JA",
+                              "Coefficient REPO", "CODE TEMPS"],
+                "Valeur": [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), reference_piece,
+                           numéro_machine, pdc, vitesse_coupe, vitesse_avance,
+                           round(coef_ja_total, 2), coef_repo, code_temps]
             }
             pd.DataFrame(info_data).to_excel(writer, sheet_name="Informations", index=False)
-        
+
         output.seek(0)
         st.download_button(
             label="📥 Télécharger Excel",
@@ -603,7 +621,7 @@ if st.button("Générer le simogramme"):
             file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-    
+
     with col_btn3:
         img_output = io.BytesIO()
         fig.savefig(img_output, format='png', bbox_inches="tight", dpi=150, facecolor='white')
