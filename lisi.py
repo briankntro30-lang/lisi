@@ -177,6 +177,7 @@ if st.session_state["loaded_config"] is not None:
     except Exception:
         machines_r = ["M1"]
     st.session_state["machines"] = machines_r
+    
         try:
             donnees_str = cfg.get("donnees", "")
 
