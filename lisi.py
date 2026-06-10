@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/simogramme.py << 'ENDOFFILE'
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
