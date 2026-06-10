@@ -667,4 +667,4 @@ if st.button("Générer le simogramme"):
         img_out = io.BytesIO()
         fig.savefig(img_out, format='png', bbox_inches="tight", dpi=150, facecolor='white')
         img_out.seek(0)
-        st.download_button("🖼️ Télécharger PNG
+        st.download_button("🖼️ Télécharger PNG")
