@@ -583,6 +583,3 @@ if st.session_state["pending_save"] is not None:
                 file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                 mime="image/png"
             )
-ENDOFFILE
-echo "done"
-Sortie
