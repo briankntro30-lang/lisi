@@ -177,53 +177,19 @@ if st.session_state["loaded_config"] is not None:
     except Exception:
         machines_r = ["M1"]
     st.session_state["machines"] = machines_r
- try:
-    donnees_str = cfg.get("donnees", "")
-
-    if donnees_str:
-        # Leer el JSON desde memoria (evita que pandas lo interprete como un archivo)
-        df_all = pd.read_json(io.StringIO(donnees_str))
-
-        # Restaurar los nombres de las columnas para el data_editor
-        rename_map = {
-            "TM": "TM 🕐",
-            "TT": "TT 🤖",
-            "TTM": "TTM ⚡",
-            "TR": "TR ☕",
-            "TZ": "TZ ⚫",
-            "TF": "TF 🎨"
-        }
-        df_all.rename(columns=rename_map, inplace=True)
-
-        # Restaurar una tabla por cada máquina
-        for m in machines_r:
-            if "Sys" in df_all.columns:
-                df_m = df_all[df_all["Sys"] == m].copy()
-            else:
-                df_m = df_all.copy()
-
-            # Eliminar columnas auxiliares
-            df_m.drop(columns=["Sys", "Fin"], errors="ignore", inplace=True)
-
-            # Reiniciar índices
-            df_m.reset_index(drop=True, inplace=True)
-
-            # Asegurar que las columnas booleanas existen
-            for col in ["TM 🕐", "TT 🤖", "TTM ⚡", "TR ☕", "TZ ⚫", "TF 🎨"]:
-                if col not in df_m.columns:
-                    df_m[col] = False
-                df_m[col] = df_m[col].fillna(False).astype(bool)
-
-            # Asegurar que las columnas numéricas son numéricas
-            for col in ["Debut", "Duree"]:
-                if col in df_m.columns:
-                    df_m[col] = pd.to_numeric(df_m[col], errors="coerce").fillna(0.0)
-
-            # Guardar para que el data_editor las cargue
-            st.session_state[f"preload_{m}"] = df_m
-
-except Exception as e:
-    st.warning(f"Impossible de restaurer les tables: {e}")
+    try:
+        donnees_str = cfg.get("donnees", "")
+        if donnees_str:
+            df_all = pd.read_json(donnees_str)
+            rename_map = {"TM":"TM 🕐","TT":"TT 🤖","TTM":"TTM ⚡","TR":"TR ☕","TZ":"TZ ⚫","TF":"TF 🎨"}
+            df_all.rename(columns=rename_map, inplace=True)
+            for m in machines_r:
+                df_m = df_all[df_all["Sys"]==m].copy() if "Sys" in df_all.columns else df_all.copy()
+                df_m.drop(columns=["Sys","Fin"], errors="ignore", inplace=True)
+                df_m.reset_index(drop=True, inplace=True)
+                st.session_state[f"preload_{m}"] = df_m
+    except Exception as e:
+        st.warning(f"Impossible de restaurer les tables: {e}")
     st.session_state["loaded_config"] = None
 
 # ===================================================
