@@ -56,7 +56,8 @@ DB_PATH = r"C:\Users\BFRANCOCANTERO\Downloads\Data\simogramme_data.db"
 try:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     # test escribir
-    open(DB_PATH, 'a').close()
+    with open(DB_PATH, 'a') as f:
+        pass
 except Exception:
     DB_PATH = os.path.join(os.path.expanduser("~"), "simogramme_data.db")
 
@@ -192,10 +193,24 @@ if st.session_state["loaded_config"] is not None:
         df_all = pd.read_json(cfg[16])
         rename_map = {"TM": "TM 🕐", "TT": "TT 🤖", "TTM": "TTM ⚡",
                       "TR": "TR ☕",  "TZ": "TZ ⚫", "TF":  "TF 🎨"}
-        df_all.rename(columns=rename_map, inplace=True)
+        # Renombrar solo si las columnas existen
+        for old, new in rename_map.items():
+            if old in df_all.columns:
+                df_all.rename(columns={old: new}, inplace=True)
+        
         for m in machines_restored:
-            df_m = df_all[df_all["Sys"] == m].copy() if "Sys" in df_all.columns else df_all.copy()
+            if "Sys" in df_all.columns:
+                df_m = df_all[df_all["Sys"] == m].copy()
+            else:
+                df_m = df_all.copy()
             df_m.drop(columns=["Sys", "Fin"], errors="ignore", inplace=True)
+            # Asegurar que todas las columnas booleanas existen
+            bool_cols = ["TM 🕐", "TT 🤖", "TTM ⚡", "TR ☕", "TZ ⚫", "TF 🎨"]
+            for col in bool_cols:
+                if col not in df_m.columns:
+                    df_m[col] = False
+                else:
+                    df_m[col] = df_m[col].astype(bool)
             df_m.reset_index(drop=True, inplace=True)
             st.session_state[f"preload_table_{m}"] = df_m
     except Exception as e:
@@ -310,10 +325,7 @@ for col, (color, code, tip, label) in zip(leg_cols, leg_items):
 st.markdown("---")
 
 # ===================================================
-# TABLES
-# The key for data_editor is STABLE (f"editor_{m}") so Streamlit preserves
-# the widget state between reruns. We only override the initial_data when
-# a config has been loaded (preload_table_{m} set above).
+# TABLES - CORRECTION POUR LES DÉCIMAUX
 # ===================================================
 
 BOOL_COLS = ["TM 🕐","TT 🤖","TTM ⚡","TR ☕","TZ ⚫","TF 🎨"]
@@ -360,8 +372,18 @@ for m in st.session_state["machines"]:
         use_container_width=True,
         column_config={
             "Etape":   st.column_config.TextColumn("Description étape", width="medium"),
-            "Debut":   st.column_config.NumberColumn("Début (s)",  min_value=0.0, step=0.1),
-            "Duree":   st.column_config.NumberColumn("Durée (s)",  min_value=0.0, step=0.1),
+            "Debut":   st.column_config.NumberColumn(
+                "Début (s)",  
+                min_value=0.0, 
+                step=0.1,
+                format="%.3f"  # Permet 3 décimales
+            ),
+            "Duree":   st.column_config.NumberColumn(
+                "Durée (s)",  
+                min_value=0.0, 
+                step=0.1,
+                format="%.3f"  # Permet 3 décimales
+            ),
             "TM 🕐":  st.column_config.CheckboxColumn("TM"),
             "TT 🤖":  st.column_config.CheckboxColumn("TT"),
             "TTM ⚡": st.column_config.CheckboxColumn("TTM"),
@@ -374,7 +396,8 @@ for m in st.session_state["machines"]:
 
     # Build normalized copy for calculations
     df_calc = df_edited.copy()
-    df_calc.columns = [c.split(' ')[0] if ' ' in c else c for c in df_calc.columns]
+    # Renombrar columnas eliminando los emojis para cálculo
+    df_calc.columns = [c.split(' ')[0] if ' ' in c and c.split(' ')[0] in ['TM','TT','TTM','TR','TZ','TF'] else c for c in df_calc.columns]
     df_calc["Debut"] = pd.to_numeric(df_calc["Debut"], errors='coerce').fillna(0)
     df_calc["Duree"] = pd.to_numeric(df_calc["Duree"], errors='coerce').fillna(0)
     df_calc["Fin"]   = df_calc["Debut"] + df_calc["Duree"]
@@ -507,34 +530,34 @@ if st.button("Générer le simogramme"):
             st.markdown(f'<div class="metric-card"><div class="metric-value">{val}</div>'
                         f'<div class="metric-label">{label}</div>'
                         f'<div class="metric-delta">{delta}</div></div>', unsafe_allow_html=True)
-    kpi(c1, f"{round(temps_cycle_final,2)} s",    "Temps cycle final",       f"×{coef_repo} repo")
-    kpi(c2, f"{round(temps_cycle_final/36,3)} UM","Temps cycle final",       f"×{coef_repo} repo")
-    kpi(c3, f"{round(total_machine_time,2)} s",   "Temps machine total",
-        f"TT:{round(total_machine_time-total_operator_parallel,2)}s TTM:{round(total_operator_parallel,2)}s")
-    kpi(c4, f"{round(total_operator_manual,2)} s","Temps manuel (TM)",
-        f"×{round(coef_ja_total,2)} JA = {round(temps_manuel_ajuste_ja,2)} s")
+    kpi(c1, f"{round(temps_cycle_final,3)} s",    "Temps cycle final",       f"×{coef_repo} repo")
+    kpi(c2, f"{round(temps_cycle_final/36,3)} UM","Temps cycle final (UM)",   f"×{coef_repo} repo")
+    kpi(c3, f"{round(total_machine_time,3)} s",   "Temps machine total",
+        f"TT:{round(total_machine_time-total_operator_parallel,3)}s TTM:{round(total_operator_parallel,3)}s")
+    kpi(c4, f"{round(total_operator_manual,3)} s","Temps manuel (TM)",
+        f"×{round(coef_ja_total,3)} JA = {round(temps_manuel_ajuste_ja,3)} s")
     kpi(c5, f"{round(taux_occ_homme,1)} %",       "Taux occupation homme",
-        f"TM+TTM+TZ = {round(temps_humain_total_reel,1)} s")
+        f"TM+TTM+TZ = {round(temps_humain_total_reel,3)} s")
 
     c6,c7,c8,c9 = st.columns(4)
-    kpi(c6, f"{round(taux_occ_machine,1)} %", "Taux occupation machine", f"TT+TTM = {round(total_machine_time,1)} s")
+    kpi(c6, f"{round(taux_occ_machine,1)} %", "Taux occupation machine", f"TT+TTM = {round(total_machine_time,3)} s")
     kpi(c7, f"{round(pieces_heure,1)}",        "Pièces / Heure")
     kpi(c8, f"{round(pieces_jour,1)}",         "Pièces / Jour")
-    kpi(c9, f"{round(total_repos_time,2)} s",  "Temps repos (TR)")
+    kpi(c9, f"{round(total_repos_time,3)} s",  "Temps repos (TR)")
 
     with st.expander("Détail des calculs"):
-        for k,v in [("TM (opérateur seul)",f"{round(total_operator_manual,2)} s"),
-                    ("TTM (parallèle)",f"{round(total_operator_parallel,2)} s"),
-                    ("TT (machine seul)",f"{round(total_machine_time-total_operator_parallel,2)} s"),
-                    ("TR (repos)",f"{round(total_repos_time,2)} s"),
-                    ("TZ (masqué)",f"{round(total_masked_time,2)} s"),
-                    ("Temps humain total réel",f"{round(temps_humain_total_reel,2)} s"),
-                    ("Temps cycle sans coeff.",f"{round(temps_cycle_sans_coef,2)} s"),
-                    ("Coefficient JA",f"{coef_ja_total:.2f}"),
-                    ("TM corrigé JA",f"{round(total_operator_manual,2)} × {coef_ja_total:.2f} = {round(temps_manuel_ajuste_ja,2)} s"),
-                    ("Temps cycle avec JA",f"{round(temps_cycle_avec_ja,2)} s"),
+        for k,v in [("TM (opérateur seul)",f"{round(total_operator_manual,3)} s"),
+                    ("TTM (parallèle)",f"{round(total_operator_parallel,3)} s"),
+                    ("TT (machine seul)",f"{round(total_machine_time-total_operator_parallel,3)} s"),
+                    ("TR (repos)",f"{round(total_repos_time,3)} s"),
+                    ("TZ (masqué)",f"{round(total_masked_time,3)} s"),
+                    ("Temps humain total réel",f"{round(temps_humain_total_reel,3)} s"),
+                    ("Temps cycle sans coeff.",f"{round(temps_cycle_sans_coef,3)} s"),
+                    ("Coefficient JA",f"{coef_ja_total:.3f}"),
+                    ("TM corrigé JA",f"{round(total_operator_manual,3)} × {coef_ja_total:.3f} = {round(temps_manuel_ajuste_ja,3)} s"),
+                    ("Temps cycle avec JA",f"{round(temps_cycle_avec_ja,3)} s"),
                     ("Coefficient REPO",f"×{coef_repo}"),
-                    ("Temps cycle final",f"{round(temps_cycle_final,2)} s"),
+                    ("Temps cycle final",f"{round(temps_cycle_final,3)} s"),
                     ("CODE TEMPS",code_temps)]:
             st.write(f"**{k}:** {v}")
 
@@ -585,24 +608,10 @@ if st.button("Générer le simogramme"):
             pd.DataFrame({
                 "Métrique":["Temps cycle final (s)","Temps machine total (s)","Temps manuel TM (s)",
                             "Taux occupation homme (%)","Taux occupation machine (%)","Pièces/Heure","Pièces/Jour","CODE TEMPS"],
-                "Valeur":  [round(temps_cycle_final,2),round(total_machine_time,2),round(total_operator_manual,2),
+                "Valeur":  [round(temps_cycle_final,3),round(total_machine_time,3),round(total_operator_manual,3),
                             round(taux_occ_homme,1),round(taux_occ_machine,1),round(pieces_heure,1),round(pieces_jour,1),code_temps]
             }).to_excel(writer, sheet_name="Résultats", index=False)
             pd.DataFrame({
                 "Paramètre":["Date","Numéro OF","Référence pièce","Numéro machine","PDC",
                              "Vitesse coupe","Vitesse avance","Coef JA","Coef REPO","CODE TEMPS"],
-                "Valeur":   [datetime.now().strftime("%Y-%m-%d %H:%M:%S"),numero_of,reference_piece,
-                             numéro_machine,pdc,vitesse_coupe,vitesse_avance,round(coef_ja_total,2),coef_repo,code_temps]
-            }).to_excel(writer, sheet_name="Informations", index=False)
-        out.seek(0)
-        st.download_button("📥 Télécharger Excel", data=out,
-            file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-    with cb3:
-        img_out = io.BytesIO()
-        fig.savefig(img_out, format='png', bbox_inches="tight", dpi=150, facecolor='white')
-        img_out.seek(0)
-        st.download_button("🖼️ Télécharger PNG", data=img_out,
-            file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-            mime="image/png")
+                "Valeur":   [datetime.now().strftime("%
