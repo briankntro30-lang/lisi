@@ -360,6 +360,8 @@ if "excel_bytes" not in st.session_state:
     st.session_state["excel_bytes"] = None
 if "fig_bytes" not in st.session_state:
     st.session_state["fig_bytes"] = None
+if "pending_save" not in st.session_state:
+    st.session_state["pending_save"] = None
 # editor_version: incrementing this key forces data_editor to re-render with new initial data
 if "editor_version" not in st.session_state:
     st.session_state["editor_version"] = 0
@@ -702,16 +704,16 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
                         f'<div class="metric-label">{label}</div>'
                         f'<div class="metric-delta">{delta}</div></div>',unsafe_allow_html=True)
     c1,c2,c3,c4,c5=st.columns(5)
-    kpi(c1,f"{round(cyc_fin,4)} s","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c2,f"{round(cyc_fin/36,4)} UM","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c3,f"{round(tm_total,4)} s","Temps machine",f"TT:{round(tm_total-par_total,4)} TTM:{round(par_total,4)}")
-    kpi(c4,f"{round(man_total,4)} s","Temps manuel TM",f"×{round(coef_ja_total,4)} = {round(man_ja,4)} s")
-    kpi(c5,f"{round(taux_h,2)} %","Taux occupation opérateur",f"TM+TTM+TZ={round(hum,4)} s")
+    kpi(c1,f"{round(cyc_fin,2)} s","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c2,f"{round(cyc_fin/36,3)} UM","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c3,f"{round(tm_total,2)} s","Temps machine",f"TT:{round(tm_total-par_total,2)} TTM:{round(par_total,2)}")
+    kpi(c4,f"{round(man_total,2)} s","Temps manuel TM",f"×{round(coef_ja_total,2)} = {round(man_ja,2)} s")
+    kpi(c5,f"{round(taux_h,2)} %","Taux occupation opérateur",f"TM+TTM+TZ={round(hum,2)} s")
     c6,c7,c8,c9=st.columns(4)
-    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM={round(tm_total,4)} s")
+    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM={round(tm_total,2)} s")
     kpi(c7,f"{round(p_h,2)}","Pièces / Heure")
     kpi(c8,f"{round(p_j,2)}","Pièces / Jour")
-    kpi(c9,f"{round(rep_total,4)} s","Temps repos TR")
+    kpi(c9,f"{round(rep_total,2)} s","Temps repos TR")
 
     with st.expander("Détail des calculs"):
         for k,v in [("TM",f"{round(man_total,4)} s"),("TTM",f"{round(par_total,4)} s"),
@@ -723,7 +725,7 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
                     ("CODE TEMPS",code_temps)]:
             st.write(f"**{k}:** {v}")
 
-    st.success("✅ Simogramme généré et sauvegardé automatiquement")
+    st.success("✅ Simogramme généré avec succès")
     st.pyplot(fig)
 
     # PNG
@@ -745,9 +747,7 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
 
     st.session_state["fig_bytes"]   = img_bytes
     st.session_state["excel_bytes"] = excel_bytes
-
-    # AUTO-SAVE to DB
-    save_data = {
+    st.session_state["pending_save"] = {
         'date': str(datetime.now()), 'numero_of': numero_of,
         'reference_piece': reference_piece, 'numero_machine': numéro_machine,
         'pdc': pdc, 'vitesse_coupe': vitesse_coupe, 'vitesse_avance': vitesse_avance,
@@ -759,7 +759,6 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
         'donnees': edited_df.to_json(),
         'resultats': json.dumps(resultats_dict),
     }
-    save_configuration(save_data)
 
 # ===================================================
 # DOWNLOAD BUTTONS (persistent after generate)
@@ -767,8 +766,12 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
 
 if st.session_state["excel_bytes"] or st.session_state["fig_bytes"]:
     st.markdown("---")
-    cb1, cb2 = st.columns(2)
+    cb1, cb2, cb3 = st.columns(3)
     with cb1:
+        if st.button("💾 Sauvegarder", key="save_btn", use_container_width=True):
+            if st.session_state["pending_save"] and save_configuration(st.session_state["pending_save"]):
+                st.success("✅ Sauvegardé !")
+    with cb2:
         if st.session_state["excel_bytes"]:
             st.download_button(
                 "📥 Télécharger Excel",
@@ -777,7 +780,7 @@ if st.session_state["excel_bytes"] or st.session_state["fig_bytes"]:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
-    with cb2:
+    with cb3:
         if st.session_state["fig_bytes"]:
             st.download_button(
                 "🖼️ Télécharger PNG",
