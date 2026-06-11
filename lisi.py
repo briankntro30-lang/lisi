@@ -431,7 +431,7 @@ with st.sidebar:
     coef_conditions = st.number_input("Conditions",  min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="conditions")
     coef_stabilite  = st.number_input("Stabilité",   min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="stabilite")
     coef_ja_total   = 1 + coef_habilete + coef_activite + coef_conditions + coef_stabilite
-    st.metric("Coef. JA total", f"{coef_ja_total:.4f}")
+    st.metric("Coef. JA total", f"{coef_ja_total:.2f}")
 
     st.markdown("## Rendement opérateur")
     coef_repo      = st.number_input("Coef. REPO",         min_value=1.0, max_value=5.0, value=1.0, step=0.05, key="repo")
