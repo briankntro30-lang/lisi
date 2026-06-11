@@ -180,7 +180,7 @@ if st.session_state["loaded_config"] is not None:
     try:
         donnees_str = cfg.get("donnees", "")
         if donnees_str:
-            df_all = pd.read_json(donnees_str)
+            df_all = pd.read_json(io.StringIO(donnees_str))
             rename_map = {"TM":"TM 🕐","TT":"TT 🤖","TTM":"TTM ⚡","TR":"TR ☕","TZ":"TZ ⚫","TF":"TF 🎨"}
             df_all.rename(columns=rename_map, inplace=True)
             for m in machines_r:
@@ -214,7 +214,7 @@ with st.sidebar:
     coef_conditions = st.number_input("Coefficient des conditions de travail", min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="conditions")
     coef_stabilite  = st.number_input("Coefficient de stabilité",             min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="stabilite")
     coef_ja_total   = 1 + coef_habilete + coef_activite + coef_conditions + coef_stabilite
-    st.metric("Coefficient JA total", f"{coef_ja_total:.2f}")
+    st.metric("Coefficient JA total", f"{coef_ja_total:.4f}")
 
     st.markdown("## Coefficient de rendement opérateur")
     coef_repo      = st.number_input("Coefficient de rendement opérateur", min_value=1.0, max_value=5.0, value=1.0, step=0.05, key="repo")
@@ -470,18 +470,18 @@ if st.button("Générer le simogramme"):
                         f'<div class="metric-label">{label}</div>'
                         f'<div class="metric-delta">{delta}</div></div>',unsafe_allow_html=True)
     c1,c2,c3,c4,c5=st.columns(5)
-    kpi(c1,f"{round(cyc_fin,2)} s","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c2,f"{round(cyc_fin/36,3)} UM","Temps cycle final",f"×{coef_repo} repo")
-    kpi(c3,f"{round(tm_total,2)} s","Temps machine total",
+    kpi(c1,f"{round(cyc_fin,4)} s","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c2,f"{round(cyc_fin/36,4)} UM","Temps cycle final",f"×{coef_repo} repo")
+    kpi(c3,f"{round(tm_total,4)} s","Temps machine total",
         f"TT:{round(tm_total-par_total,4)}s TTM:{round(par_total,4)}s")
-    kpi(c4,f"{round(man_total,2)} s","Temps manuel (TM)",
-        f"×{round(coef_ja_total,2)} JA = {round(man_ja,4)} s")
-    kpi(c5,f"{round(taux_h,2)} %","Taux occupation homme",f"TM+TTM+TZ = {round(hum,2)} s")
+    kpi(c4,f"{round(man_total,4)} s","Temps manuel (TM)",
+        f"×{round(coef_ja_total,4)} JA = {round(man_ja,4)} s")
+    kpi(c5,f"{round(taux_h,2)} %","Taux occupation homme",f"TM+TTM+TZ = {round(hum,4)} s")
     c6,c7,c8,c9=st.columns(4)
-    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM = {round(tm_total,2)} s")
+    kpi(c6,f"{round(taux_m,2)} %","Taux occupation machine",f"TT+TTM = {round(tm_total,4)} s")
     kpi(c7,f"{round(p_h,2)}","Pièces / Heure")
     kpi(c8,f"{round(p_j,2)}","Pièces / Jour")
-    kpi(c9,f"{round(rep_total,2)} s","Temps repos (TR)")
+    kpi(c9,f"{round(rep_total,4)} s","Temps repos (TR)")
 
     with st.expander("Détail des calculs"):
         for k,v in [
@@ -498,7 +498,16 @@ if st.button("Générer le simogramme"):
     st.success("Simogramme généré avec succès")
     st.pyplot(fig)
 
-    # ---------- prepare Excel bytes ----------
+    # ---------- prepare PNG bytes ----------
+    img_buf = io.BytesIO()
+    fig.savefig(img_buf, format='png', bbox_inches="tight", dpi=150, facecolor='white')
+    img_buf.seek(0)
+    img_bytes = img_buf.getvalue()
+
+    # ---------- prepare Excel bytes (with simogramme image sheet) ----------
+    from openpyxl import load_workbook
+    from openpyxl.drawing.image import Image as XLImage
+
     excel_buf = io.BytesIO()
     with pd.ExcelWriter(excel_buf, engine='openpyxl') as writer:
         edited_df.to_excel(writer, sheet_name="Données", index=False)
@@ -514,15 +523,24 @@ if st.button("Générer le simogramme"):
                          numéro_machine,pdc,vitesse_coupe,vitesse_avance,
                          round(coef_ja_total,4),coef_repo,code_temps]
         }).to_excel(writer, sheet_name="Informations", index=False)
+        # blank sheet for image — will be populated after
+        writer.book.create_sheet("Simogramme")
     excel_buf.seek(0)
 
-    # ---------- prepare PNG bytes ----------
-    img_buf = io.BytesIO()
-    fig.savefig(img_buf, format='png', bbox_inches="tight", dpi=150, facecolor='white')
-    img_buf.seek(0)
+    # Reopen workbook to insert image (openpyxl requires file-like after ExcelWriter closes)
+    wb = load_workbook(excel_buf)
+    ws_img = wb["Simogramme"]
+    xl_img = XLImage(io.BytesIO(img_bytes))
+    # Scale to fit nicely: original is 1800×600 px at 150dpi → ~30×10 cm
+    xl_img.width  = 900
+    xl_img.height = 300
+    ws_img.add_image(xl_img, "A1")
+    excel_buf = io.BytesIO()
+    wb.save(excel_buf)
+    excel_buf.seek(0)
 
     # ---------- store everything in session_state ----------
-    st.session_state["fig_bytes"]   = img_buf.getvalue()
+    st.session_state["fig_bytes"]   = img_bytes
     st.session_state["excel_bytes"] = excel_buf.getvalue()
     st.session_state["pending_save"] = {
         'date':            str(datetime.now()),
