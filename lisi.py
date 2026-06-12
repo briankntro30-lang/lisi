@@ -63,9 +63,8 @@ def init_database():
     c.execute('''CREATE TABLE IF NOT EXISTS configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT, numero_of TEXT, reference_piece TEXT, numero_machine TEXT,
-                  pdc TEXT, vitesse_coupe TEXT, vitesse_avance TEXT,
-                  coef_habilete REAL, coef_activite REAL, coef_conditions REAL,
-                  coef_stabilite REAL, coef_ja_total REAL, coef_repo REAL,
+                  pdc TEXT,  numero_article TEXT, coef_habilete REAL, coef_activite REAL,
+                  coef_conditions REAL, coef_stabilite REAL, coef_ja_total REAL, coef_repo REAL,
                   heures_travail REAL, machines TEXT, donnees TEXT, resultats TEXT)''')
     cols = [r[1] for r in conn.execute("PRAGMA table_info(configurations)").fetchall()]
     if "numero_of" not in cols:
@@ -83,8 +82,8 @@ def save_configuration(data):
                       machines, donnees, resultats)
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                   (data['date'], data['numero_of'], data['reference_piece'],
-                   data['numero_machine'], data['pdc'], data['vitesse_coupe'],
-                   data['vitesse_avance'], data['coef_habilete'], data['coef_activite'],
+                   data['numero_machine'], data['pdc'], data['numero_article'], 
+                   data['coef_habilete'], data['coef_activite'],
                    data['coef_conditions'], data['coef_stabilite'], data['coef_ja_total'],
                    data['coef_repo'], data['heures_travail'], data['machines'],
                    data['donnees'], data['resultats']))
@@ -184,11 +183,10 @@ def build_excel(edited_df, machines, sidebar_info, resultats, img_bytes):
 
     ident_rows = [
         ("Numéro OF",           sidebar_info["numero_of"]),
+         ("Numéro d'article",    sidebar_info[" numero_article"]),
         ("Référence pièce",     sidebar_info["reference_piece"]),
         ("Numéro machine",      sidebar_info["numero_machine"]),
         ("PDC",                 sidebar_info["pdc"]),
-        ("Vitesse de coupe",    sidebar_info["vitesse_coupe"]),
-        ("Vitesse d'avance",    sidebar_info["vitesse_avance"]),
         ("Date",                sidebar_info["date"]),
     ]
     for i, (k, v) in enumerate(ident_rows):
@@ -378,8 +376,7 @@ if st.session_state["loaded_config"] is not None:
     st.session_state["ref_piece"]   = str(cfg.get("reference_piece","") or "")
     st.session_state["num_machine"] = str(cfg.get("numero_machine","") or "")
     st.session_state["pdc"]         = str(cfg.get("pdc","") or "")
-    st.session_state["vit_coupe"]   = str(cfg.get("vitesse_coupe","") or "")
-    st.session_state["vit_avance"]  = str(cfg.get("vitesse_avance","") or "")
+    st.session_state["num_art"]   = str(cfg.get("numero_article","") or "")
     st.session_state["habilete"]    = float(cfg.get("coef_habilete",0.0) or 0.0)
     st.session_state["activite"]    = float(cfg.get("coef_activite",0.0) or 0.0)
     st.session_state["conditions"]  = float(cfg.get("coef_conditions",0.0) or 0.0)
@@ -418,12 +415,12 @@ with st.sidebar:
     st.title("Configuration")
     st.markdown("## Informations production")
     numero_of       = st.text_input("Numéro OF",             key="num_of")
+    numero_article   = st.text_input("Numéro d'article",       key="num_art")
     reference_piece = st.text_input("Référence pièce",        key="ref_piece")
     numéro_machine  = st.text_input("Numéro de la machine",   key="num_machine")
     pdc             = st.text_input("PDC",                    key="pdc")
-    vitesse_coupe   = st.text_input("Vitesse de coupe",       key="vit_coupe")
-    vitesse_avance  = st.text_input("Vitesse d'avance",       key="vit_avance")
-
+    
+   
     st.markdown("## Coefficient JA")
     st.info("Valeurs entre 0 et 1, ajoutées à 1")
     coef_habilete   = st.number_input("Habileté",    min_value=0.0, max_value=1.0, value=0.0, step=0.05, key="habilete")
@@ -462,11 +459,12 @@ if st.session_state["show_history"]:
     df_hist = load_configurations()
     if not df_hist.empty:
         for _, row in df_hist.iterrows():
+            art_v = row.get("numero_article","") or "—"
             of_v  = row.get("numero_of","") or "—"
             pdc_v = row.get("pdc","") or "—"
             m_v   = row.get("numero_machine","") or "—"
             d_v   = str(row.get("date",""))[:16]
-            with st.expander(f"Article: {of_v}  |  PDC: {pdc_v}  |  Machine: {m_v}  |  {d_v}"):
+            with st.expander(f"Article: {art_v}  |  PDC: {pdc_v}  |  Machine: {m_v}  |  {d_v}"):
                 ci, cb = st.columns([3,1])
                 with ci:
                     st.write(f"**Réf:** {row.get('reference_piece','')}  |  **Vc:** {row.get('vitesse_coupe','')}  |  **Vf:** {row.get('vitesse_avance','')}")
