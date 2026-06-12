@@ -466,7 +466,7 @@ if st.session_state["show_history"]:
             pdc_v = row.get("pdc","") or "—"
             m_v   = row.get("numero_machine","") or "—"
             d_v   = str(row.get("date",""))[:16]
-            with st.expander(f"OF: {of_v}  |  PDC: {pdc_v}  |  Machine: {m_v}  |  {d_v}"):
+            with st.expander(f"Article: {of_v}  |  PDC: {pdc_v}  |  Machine: {m_v}  |  {d_v}"):
                 ci, cb = st.columns([3,1])
                 with ci:
                     st.write(f"**Réf:** {row.get('reference_piece','')}  |  **Vc:** {row.get('vitesse_coupe','')}  |  **Vf:** {row.get('vitesse_avance','')}")
