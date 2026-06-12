@@ -468,7 +468,7 @@ if st.session_state["show_history"]:
                 ci, cb = st.columns([3,1])
                 with ci:
                     st.write(f"**Réf:** {row.get('reference_piece','')}  |  **Vc:** {row.get('vitesse_coupe','')}  |  **Vf:** {row.get('vitesse_avance','')}")
-                    st.write(f"**JA:** {float(row.get('coef_ja_total',1)):.4f}  |  **REPO:** {row.get('coef_repo',1)}  |  **H/j:** {row.get('heures_travail',7)}")
+                    st.write(f"**JA:** {float(row.get('coef_ja_total',1)):.2f}  |  **REPO:** {row.get('coef_repo',1)}  |  **H/j:** {row.get('heures_travail',7)}")
                     try:
                         res = json.loads(row.get("resultats","{}"))
                         st.write(f"**Tc:** {round(res.get('temps_cycle_final',0),4)} s  |  **P/h:** {round(res.get('pieces_heure',0),2)}  |  **P/j:** {round(res.get('pieces_jour',0),2)}")
