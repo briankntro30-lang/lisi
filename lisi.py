@@ -720,8 +720,8 @@ if st.button("🚀 Générer le simogramme", use_container_width=True):
                     ("TT",f"{round(tm_total-par_total,4)} s"),("TR",f"{round(rep_total,4)} s"),
                     ("TZ",f"{round(msk_total,4)} s"),("Temps humain",f"{round(hum,4)} s"),
                     ("Cycle brut",f"{round(cyc_brut,4)} s"),("Coef JA",f"{coef_ja_total:.4f}"),
-                    ("TM×JA",f"{round(man_ja,4)} s"),("Cycle JA",f"{round(cyc_ja,4)} s"),
-                    ("×REPO",f"×{coef_repo}"),("Cycle final",f"{round(cyc_fin,4)} s"),
+                    ("TM×JA",f"{round(man_ja,2)} s"),("Cycle JA",f"{round(cyc_ja,2)} s"),
+                    ("×REPO",f"×{coef_repo}"),("Cycle final",f"{round(cyc_fin,2)} s"),
                     ("CODE TEMPS",code_temps)]:
             st.write(f"**{k}:** {v}")
 
