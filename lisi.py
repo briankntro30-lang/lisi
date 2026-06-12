@@ -475,148 +475,241 @@ if st.session_state["show_history"]:
     st.markdown("---")
 
 # ===================================================
-# MODULE CHRONOMÉTRAGE
+# MODULE CHRONOMÉTRAGE — Feuille de relevés style Excel
 # ===================================================
 
 if st.session_state.get("show_chrono", False):
-    st.markdown('<div class="chrono-header">⏱️ Module Chronométrage — Collecte & Analyse des temps</div>',
+
+    st.markdown("""
+    <style>
+    .chrono-title {
+        background: linear-gradient(90deg,#1f2937,#374151);
+        color:white; border-radius:10px; padding:14px 20px;
+        font-weight:700; font-size:18px; margin-bottom:16px;
+        letter-spacing:0.5px;
+    }
+    .chrono-table-wrap { overflow-x: auto; }
+    table.chrono-tbl {
+        border-collapse: collapse; width:100%;
+        font-size: 12px; font-family: Arial, sans-serif;
+    }
+    table.chrono-tbl th {
+        background:#1f2937; color:white; padding:6px 8px;
+        text-align:center; border:1px solid #374151;
+        white-space:nowrap;
+    }
+    table.chrono-tbl th.seq-col { background:#374151; }
+    table.chrono-tbl th.fixed-col { background:#f97316; color:white; }
+    table.chrono-tbl td {
+        border:1px solid #d1d5db; padding:4px 6px;
+        text-align:center; background:white;
+    }
+    table.chrono-tbl tr:nth-child(even) td { background:#f9fafb; }
+    table.chrono-tbl td.seq-label {
+        background:#fef3c7; font-weight:700;
+        color:#92400e; text-align:left; white-space:nowrap;
+    }
+    table.chrono-tbl td.stat-moy {
+        background:#d1fae5; font-weight:700; color:#065f46;
+    }
+    table.chrono-tbl td.stat-dp { background:#fef9c3; color:#713f12; }
+    table.chrono-tbl td.stat-je { background:#ede9fe; color:#4c1d95; font-weight:700; }
+    table.chrono-tbl td.stat-freq { background:#e0f2fe; color:#0c4a6e; font-weight:700; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="chrono-title">⏱️ Feuille de relevés chronométrés</div>',
                 unsafe_allow_html=True)
 
-    # Init chrono etapes in session
+    # ---- init state ----
+    TYPE_OPTIONS = ["TM", "TT", "TTM", "TR", "TZ", "TF"]
+    N_MAX_COL = 15
+    DEFAULT_N_COL = 5
+
+    if "chrono_n_col" not in st.session_state:
+        st.session_state["chrono_n_col"] = DEFAULT_N_COL
     if "chrono_etapes" not in st.session_state or not st.session_state["chrono_etapes"]:
         st.session_state["chrono_etapes"] = [
-            {"nom": "", "type": "TM", "n_prises": 3, "prises": [0.0, 0.0, 0.0]}
+            {"nom":"Séquence 1","type":"TM","freq":1,"prises":[0.0]*DEFAULT_N_COL}
         ]
 
-    N_MAX_PRISES = 10
+    n_col = st.session_state["chrono_n_col"]
 
-    col_add, col_reset = st.columns([1,1])
-    with col_add:
-        if st.button("➕ Ajouter une étape", key="chrono_add"):
+    # ---- toolbar ----
+    tb1,tb2,tb3,tb4,tb5 = st.columns([2,2,2,2,2])
+    with tb1:
+        if st.button("➕ Séquence", key="chrono_add_row", use_container_width=True):
+            idx_new = len(st.session_state["chrono_etapes"])+1
             st.session_state["chrono_etapes"].append(
-                {"nom": "", "type": "TM", "n_prises": 3, "prises": [0.0, 0.0, 0.0]}
+                {"nom":f"Séquence {idx_new}","type":"TM","freq":1,"prises":[0.0]*n_col}
             )
             st.rerun()
-    with col_reset:
-        if st.button("🗑️ Réinitialiser tout", key="chrono_reset"):
+    with tb2:
+        if st.button("➖ Séquence", key="chrono_del_row", use_container_width=True):
+            if len(st.session_state["chrono_etapes"])>1:
+                st.session_state["chrono_etapes"].pop()
+                st.rerun()
+    with tb3:
+        if st.button("➕ Colonne", key="chrono_add_col", use_container_width=True):
+            if n_col < N_MAX_COL:
+                st.session_state["chrono_n_col"] = n_col+1
+                for e in st.session_state["chrono_etapes"]:
+                    e["prises"].append(0.0)
+                st.rerun()
+    with tb4:
+        if st.button("➖ Colonne", key="chrono_del_col", use_container_width=True):
+            if n_col > 1:
+                st.session_state["chrono_n_col"] = n_col-1
+                for e in st.session_state["chrono_etapes"]:
+                    e["prises"] = e["prises"][:n_col-1]
+                st.rerun()
+    with tb5:
+        if st.button("🗑️ Réinitialiser", key="chrono_reset", use_container_width=True):
             st.session_state["chrono_etapes"] = [
-                {"nom": "", "type": "TM", "n_prises": 3, "prises": [0.0, 0.0, 0.0]}
+                {"nom":"Séquence 1","type":"TM","freq":1,"prises":[0.0]*DEFAULT_N_COL}
             ]
+            st.session_state["chrono_n_col"] = DEFAULT_N_COL
             st.rerun()
 
-    TYPE_OPTIONS = ["TM", "TT", "TTM", "TR", "TZ"]
-    etapes_to_delete = []
+    st.markdown(f"**{n_col} mesures par séquence** — colonnes : {n_col} | séquences : {len(st.session_state['chrono_etapes'])}")
+    st.markdown("---")
 
+    # ---- saisie ligne par ligne ----
+    etapes_del = []
     for idx, etape in enumerate(st.session_state["chrono_etapes"]):
-        with st.container():
-            st.markdown(f"**Étape {idx+1}**")
-            c1, c2, c3, c4 = st.columns([3, 1.2, 1.2, 0.5])
-            with c1:
-                nom = st.text_input("Nom", value=etape["nom"],
-                                    key=f"chrono_nom_{idx}", label_visibility="collapsed",
-                                    placeholder=f"Nom étape {idx+1}")
-                st.session_state["chrono_etapes"][idx]["nom"] = nom
-            with c2:
-                type_sel = st.selectbox("Type", TYPE_OPTIONS,
-                                        index=TYPE_OPTIONS.index(etape["type"]) if etape["type"] in TYPE_OPTIONS else 0,
-                                        key=f"chrono_type_{idx}", label_visibility="collapsed")
-                st.session_state["chrono_etapes"][idx]["type"] = type_sel
-            with c3:
-                n = st.number_input("Nb prises", min_value=1, max_value=N_MAX_PRISES,
-                                    value=etape["n_prises"], step=1,
-                                    key=f"chrono_n_{idx}", label_visibility="collapsed")
-                if n != etape["n_prises"]:
-                    old = etape["prises"]
-                    if n > len(old):
-                        new_prises = old + [0.0] * (n - len(old))
-                    else:
-                        new_prises = old[:n]
-                    st.session_state["chrono_etapes"][idx]["n_prises"] = n
-                    st.session_state["chrono_etapes"][idx]["prises"] = new_prises
-                    st.rerun()
-            with c4:
-                if st.button("🗑️", key=f"chrono_del_{idx}"):
-                    etapes_to_delete.append(idx)
 
-            # Saisie des prises de temps
-            prises = st.session_state["chrono_etapes"][idx]["prises"]
-            n_prises = st.session_state["chrono_etapes"][idx]["n_prises"]
-            cols_prises = st.columns(min(n_prises, N_MAX_PRISES))
-            new_prises = []
-            for pi in range(n_prises):
-                with cols_prises[pi % len(cols_prises)]:
-                    val_p = st.number_input(
-                        f"T{pi+1}", min_value=0.0, value=float(prises[pi]) if pi < len(prises) else 0.0,
-                        key=f"chrono_prise_{idx}_{pi}", label_visibility="visible", step=0.01
-                    )
-                    new_prises.append(val_p)
-            st.session_state["chrono_etapes"][idx]["prises"] = new_prises
+        # ensure prises has correct length
+        while len(etape["prises"]) < n_col:
+            etape["prises"].append(0.0)
+        etape["prises"] = etape["prises"][:n_col]
 
-            # Stats en temps réel
-            vals_non_zero = [v for v in new_prises if v > 0]
-            if vals_non_zero:
-                moy  = sum(vals_non_zero) / len(vals_non_zero)
-                mini = min(vals_non_zero)
-                maxi = max(vals_non_zero)
-                ecar = (sum((v - moy)**2 for v in vals_non_zero) / len(vals_non_zero)) ** 0.5
-                st.markdown(
-                    f'<div class="chrono-stats">'
-                    f'📊 <b>Moyenne: {moy:.4f} s</b> &nbsp;|&nbsp; '
-                    f'Min: {mini:.4f} s &nbsp;|&nbsp; Max: {maxi:.4f} s &nbsp;|&nbsp; '
-                    f'Écart-type: {ecar:.4f} s &nbsp;|&nbsp; '
-                    f'N valides: {len(vals_non_zero)}'
-                    f'</div>', unsafe_allow_html=True)
-            st.markdown("---")
+        # calculs
+        vals = [v for v in etape["prises"] if v > 0]
+        moy_raw = sum(vals)/len(vals) if vals else 0.0
+        freq    = etape.get("freq", 1) or 1
+        is_tf   = etape["type"] == "TF"
+        moy_aff = round(moy_raw / freq, 4) if is_tf else round(moy_raw, 4)
+        dp      = round((sum((v-moy_raw)**2 for v in vals)/len(vals))**0.5, 4) if len(vals)>1 else 0.0
+        n_valid = len(vals)
 
-    # Delete marked etapes
-    if etapes_to_delete:
-        for i in sorted(etapes_to_delete, reverse=True):
+        # row header: nom + type + (freq if TF) + del
+        hc1,hc2,hc3,hc4 = st.columns([3, 1.2, 1.2, 0.4])
+        with hc1:
+            nom = st.text_input("Séquence", value=etape["nom"],
+                                key=f"cn_{idx}", label_visibility="collapsed",
+                                placeholder=f"Séquence {idx+1}")
+            st.session_state["chrono_etapes"][idx]["nom"] = nom
+        with hc2:
+            t_sel = st.selectbox("Type", TYPE_OPTIONS,
+                                 index=TYPE_OPTIONS.index(etape["type"]) if etape["type"] in TYPE_OPTIONS else 0,
+                                 key=f"ct_{idx}", label_visibility="collapsed")
+            st.session_state["chrono_etapes"][idx]["type"] = t_sel
+        with hc3:
+            if t_sel == "TF":
+                freq_in = st.number_input("Fréq.", min_value=1, max_value=1000,
+                                          value=int(etape.get("freq",1)),
+                                          key=f"cf_{idx}", label_visibility="collapsed")
+                st.session_state["chrono_etapes"][idx]["freq"] = freq_in
+                freq = freq_in
+                moy_aff = round(moy_raw / freq, 4) if moy_raw > 0 else 0.0
+            else:
+                st.session_state["chrono_etapes"][idx]["freq"] = 1
+                st.markdown("<div style='padding-top:8px;color:#9ca3af;font-size:11px'>fréq. N/A</div>",
+                            unsafe_allow_html=True)
+        with hc4:
+            if st.button("🗑️", key=f"cdel_{idx}"):
+                etapes_del.append(idx)
+
+        # prises de temps — toutes sur une ligne
+        pcols = st.columns(n_col)
+        new_prises = []
+        for pi in range(n_col):
+            with pcols[pi]:
+                vp = st.number_input(f"T{pi+1}", min_value=0.0,
+                                     value=float(etape["prises"][pi]),
+                                     key=f"cp_{idx}_{pi}",
+                                     label_visibility="visible", step=0.01)
+                new_prises.append(vp)
+        st.session_state["chrono_etapes"][idx]["prises"] = new_prises
+
+        # stats bar
+        moy_disp = moy_aff
+        freq_disp = f"÷{freq}" if is_tf else "—"
+        st.markdown(
+            f'<div class="chrono-stats" style="margin-bottom:8px;">'
+            f'<b>N={n_valid}</b> &nbsp;|&nbsp; '
+            f'Moy.brute: <b>{round(moy_raw,4)} s</b> &nbsp;|&nbsp; '
+            f'Freq: <b>{freq_disp}</b> &nbsp;|&nbsp; '
+            f'<span style="color:#065f46;font-weight:700">Moy.affiché: {moy_disp} s</span> &nbsp;|&nbsp; '
+            f'DP: {dp} &nbsp;|&nbsp; JE: <b>{t_sel}</b>'
+            f'</div>', unsafe_allow_html=True)
+        st.markdown("---")
+
+    if etapes_del:
+        for i in sorted(etapes_del, reverse=True):
             st.session_state["chrono_etapes"].pop(i)
         st.rerun()
 
-    # Tableau récap
-    st.markdown("#### Récapitulatif des moyennes")
-    recap_rows = []
-    debut_cumul = 0.0
-    for etape in st.session_state["chrono_etapes"]:
-        vals_nz = [v for v in etape["prises"] if v > 0]
-        moy = sum(vals_nz)/len(vals_nz) if vals_nz else 0.0
-        recap_rows.append({
-            "Étape": etape["nom"] or "(sans nom)",
-            "Type": etape["type"],
-            "N prises": len(vals_nz),
-            "Moyenne (s)": round(moy, 4),
-            "Min (s)": round(min(vals_nz), 4) if vals_nz else 0,
-            "Max (s)": round(max(vals_nz), 4) if vals_nz else 0,
-            "Écart-type": round((sum((v-moy)**2 for v in vals_nz)/len(vals_nz))**0.5, 4) if len(vals_nz)>1 else 0,
-        })
-        debut_cumul += moy
-    if recap_rows:
-        st.dataframe(pd.DataFrame(recap_rows), use_container_width=True, hide_index=True)
+    # ---- tableau récapitulatif HTML style Excel ----
+    st.markdown("### 📋 Récapitulatif — Feuille de relevés")
+    recap_html = '<div class="chrono-table-wrap"><table class="chrono-tbl"><thead><tr>'
+    recap_html += '<th class="seq-col">Séquence</th>'
+    for pi in range(n_col):
+        recap_html += f'<th>T{pi+1}</th>'
+    recap_html += '<th class="fixed-col">Freq</th>'
+    recap_html += '<th class="fixed-col">Moyenne</th>'
+    recap_html += '<th class="fixed-col">DP</th>'
+    recap_html += '<th class="fixed-col">JE</th>'
+    recap_html += '</tr></thead><tbody>'
 
-    # Bouton → injecter dans la table du simogramme
-    st.markdown("#### Injecter dans le tableau M1")
-    if st.button("🚀 Transférer les moyennes vers le tableau M1", use_container_width=True, key="chrono_inject"):
-        rows = []
-        debut = 0.0
+    for etape in st.session_state["chrono_etapes"]:
+        vals = [v for v in etape["prises"] if v > 0]
+        moy_raw = sum(vals)/len(vals) if vals else 0.0
+        freq    = etape.get("freq",1) or 1
+        is_tf   = etape["type"] == "TF"
+        moy_aff = round(moy_raw/freq, 4) if is_tf else round(moy_raw, 4)
+        dp      = round((sum((v-moy_raw)**2 for v in vals)/len(vals))**0.5, 4) if len(vals)>1 else 0.0
+        freq_disp = str(freq) if is_tf else "—"
+
+        recap_html += f'<tr><td class="seq-label">{etape["nom"]}</td>'
+        for pi in range(n_col):
+            v = etape["prises"][pi] if pi < len(etape["prises"]) else 0.0
+            cell_val = f"{v:.2f}" if v > 0 else ""
+            recap_html += f'<td>{cell_val}</td>'
+        recap_html += f'<td class="stat-freq">{freq_disp}</td>'
+        recap_html += f'<td class="stat-moy">{moy_aff}</td>'
+        recap_html += f'<td class="stat-dp">{dp}</td>'
+        recap_html += f'<td class="stat-je">{etape["type"]}</td>'
+        recap_html += '</tr>'
+
+    recap_html += '</tbody></table></div>'
+    st.markdown(recap_html, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ---- injecter dans M1 ----
+    if st.button("🚀 Transférer vers le tableau M1", use_container_width=True, key="chrono_inject"):
+        rows = []; debut = 0.0
         for etape in st.session_state["chrono_etapes"]:
             vals_nz = [v for v in etape["prises"] if v > 0]
-            moy = round(sum(vals_nz)/len(vals_nz), 4) if vals_nz else 0.0
+            moy_raw = round(sum(vals_nz)/len(vals_nz), 4) if vals_nz else 0.0
+            freq    = etape.get("freq",1) or 1
+            is_tf   = etape["type"] == "TF"
+            duree   = round(moy_raw/freq, 4) if is_tf else moy_raw
             t = etape["type"]
             rows.append({
                 "Etape": etape["nom"],
                 "Debut": debut,
-                "Duree": moy,
-                "TM 🕐": t == "TM",
-                "TT 🤖": t == "TT",
-                "TTM ⚡": t == "TTM",
-                "TR ☕": t == "TR",
-                "TZ ⚫": t == "TZ",
-                "TF 🎨": False,
+                "Duree": duree,
+                "TM 🕐": t=="TM",
+                "TT 🤖": t=="TT",
+                "TTM ⚡": t=="TTM",
+                "TR ☕": t=="TR",
+                "TZ ⚫": t=="TZ",
+                "TF 🎨": t=="TF",
             })
-            debut += moy
-        df_inject = pd.DataFrame(rows)
-        st.session_state["init_data_M1"] = df_inject
+            debut += duree
+        st.session_state["init_data_M1"] = pd.DataFrame(rows)
         st.session_state["editor_version"] += 1
         st.session_state["show_chrono"] = False
         st.success("✅ Données transférées vers le tableau M1 !")
