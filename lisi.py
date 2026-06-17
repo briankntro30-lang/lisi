@@ -998,23 +998,7 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
     kpi(c7,f"{round(p_h,2)}","Pièces / Heure")
     kpi(c8,f"{round(p_j,2)}","Pièces / Jour")
     kpi(c9,f"{round(rep_total,2)} s","Temps repos TR (saisi)")
-
-    # ---- BANNIÈRE REPOS PAR HEURE ----
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-    cr1, cr2, cr3 = st.columns(3)
-    kpi_repos(cr1,
-              f"{round(repos_par_heure_min,1)} min",
-              "☕ Repos / heure",
-              f"= {round(repos_total_heure_s,0):.0f} s | {pct_repos_du_cycle}% du cycle")
-    kpi_repos(cr2,
-              f"{round(temps_repos_par_piece_s,2)} s",
-              "Repos par pièce",
-              f"TC({round(cyc_fin,2)}) − TC_TH({round(cyc_th,2)})")
-    kpi_repos(cr3,
-              f"{round(60 - repos_par_heure_min, 1)} min",
-              "Travail effectif / heure",
-              f"60 min − {round(repos_par_heure_min,1)} min repos")
-
+    
     with st.expander("Détail des calculs"):
         for k,v in [
             ("TM (brut)",f"{round(man_total,4)} s"),
