@@ -1,35 +1,63 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Patch
-from datetime import datetime
-import sqlite3
-import json
-import io
-import os
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.drawing.image import Image as XLImage
-from openpyxl.utils import get_column_letter
+# ===================================================
+# IMPORTS — comme les #include en C
+# ===================================================
 
+import streamlit as st          # La bibliothèque principale : elle crée l'interface web (boutons, tableaux, graphiques...)
+import pandas as pd              # Permet de manipuler des tableaux de données (comme des matrices en C)
+import matplotlib.pyplot as plt  # Bibliothèque pour dessiner des graphiques
+from matplotlib.patches import Rectangle, Patch  # Des formes géométriques pour dessiner le simogramme (rectangles, légende)
+from datetime import datetime    # Pour obtenir la date et l'heure actuelle
+import sqlite3                   # Base de données légère stockée dans un fichier .db (comme un fichier structuré en C)
+import json                      # Pour convertir des données en texte et vice-versa (sérialisation)
+import io                        # Pour manipuler des données en mémoire comme si c'était des fichiers
+import os                        # Pour interagir avec le système de fichiers (créer des dossiers, des chemins...)
+from openpyxl import Workbook, load_workbook          # Pour créer et lire des fichiers Excel (.xlsx)
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side  # Pour formater les cellules Excel (couleur, police, bordure...)
+from openpyxl.drawing.image import Image as XLImage  # Pour insérer une image dans un fichier Excel
+from openpyxl.utils import get_column_letter          # Pour convertir un numéro de colonne en lettre (ex: 1 → "A")
+
+# ===================================================
+# CONFIGURATION DE LA PAGE
+# ===================================================
+
+# Définit le titre de l'onglet du navigateur et passe en mode large (pleine largeur)
 st.set_page_config(page_title="Simogramme", layout="wide")
 
+# ===================================================
+# STYLES CSS — comme définir l'apparence visuelle
+# ===================================================
+
+# st.markdown permet d'injecter du HTML/CSS directement dans la page
+# unsafe_allow_html=True est obligatoire pour que le HTML soit interprété (et non affiché comme texte brut)
 st.markdown("""
 <style>
+/* Fond gris clair pour toute la page */
 .main { background-color: #f4f6f9; }
+
+/* Titres en gris foncé et gras */
 h1, h2, h3 { color: #1f2937; font-weight: 700; }
+
+/* Style des boutons Streamlit : fond sombre, texte blanc, coins arrondis */
 .stButton>button {
     background-color: #1f2937; color: white;
     border-radius: 8px; height: 45px; font-weight: bold; border: none;
 }
+/* Couleur au survol du bouton (hover) */
 .stButton>button:hover { background-color: #374151; }
+
+/* Carte KPI standard : fond blanc, ombre légère, centré */
 .metric-card {
     background-color: white; padding: 15px; border-radius: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;
 }
+/* Valeur numérique dans une carte KPI standard */
 .metric-value { font-size: 32px; font-weight: bold; color: #1f2937; }
+/* Texte descriptif sous la valeur */
 .metric-label { font-size: 14px; color: #6b7280; margin-top: 5px; }
+/* Texte secondaire encore plus petit */
 .metric-delta { font-size: 12px; margin-top: 5px; }
+
+/* Carte KPI spéciale "repos" : fond orange clair, bordure orange */
 .metric-card-repos {
     background-color: #fff7ed; padding: 15px; border-radius: 10px;
     box-shadow: 0 1px 3px rgba(249,115,22,0.2); text-align: center;
@@ -38,6 +66,8 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 .metric-value-repos { font-size: 32px; font-weight: bold; color: #f97316; }
 .metric-label-repos { font-size: 14px; color: #92400e; margin-top: 5px; }
 .metric-delta-repos { font-size: 12px; margin-top: 5px; color: #c2410c; }
+
+/* Carte KPI machine M1 : fond bleu clair */
 .metric-card-m1 {
     background-color: #eff6ff; padding: 15px; border-radius: 10px;
     box-shadow: 0 1px 3px rgba(59,130,246,0.2); text-align: center;
@@ -46,6 +76,8 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 .metric-value-m1 { font-size: 28px; font-weight: bold; color: #1d4ed8; }
 .metric-label-m1 { font-size: 13px; color: #1e40af; margin-top: 5px; }
 .metric-delta-m1 { font-size: 11px; margin-top: 5px; color: #3b82f6; }
+
+/* Carte KPI machine M2 : fond vert clair */
 .metric-card-m2 {
     background-color: #f0fdf4; padding: 15px; border-radius: 10px;
     box-shadow: 0 1px 3px rgba(34,197,94,0.2); text-align: center;
@@ -54,40 +86,62 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 .metric-value-m2 { font-size: 28px; font-weight: bold; color: #15803d; }
 .metric-label-m2 { font-size: 13px; color: #166534; margin-top: 5px; }
 .metric-delta-m2 { font-size: 11px; margin-top: 5px; color: #22c55e; }
+
+/* Petit cercle "?" gris pour afficher une info-bulle au survol */
 .info-icon {
     display: inline-block; width: 16px; height: 16px;
     background-color: #6b7280; color: white; border-radius: 50%;
     text-align: center; font-size: 11px; font-weight: bold;
     line-height: 16px; margin-left: 5px; cursor: help; font-family: monospace;
 }
+
+/* Petit carré coloré utilisé dans la légende */
 .legend-color {
     display: inline-block; width: 20px; height: 20px;
     border-radius: 3px; margin-right: 5px; vertical-align: middle;
 }
+
+/* Carte de simulation dans l'historique : fond blanc, bordure gauche orange */
 .sim-card {
     background: white; border-radius: 14px; padding: 18px 22px;
     margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     border-left: 6px solid #f97316; transition: box-shadow 0.2s;
 }
-.sim-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.13); }
+.sim-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.13); }  /* Ombre plus forte au survol */
+
+/* Numéro d'article affiché en grand orange dans la carte historique */
 .sim-article { font-size: 28px; font-weight: 800; color: #f97316; letter-spacing: 1px; margin-bottom: 2px; }
+
+/* Date en petit gris sous le numéro */
 .sim-date { font-size: 11px; color: #9ca3af; margin-bottom: 10px; }
+
+/* Ligne de badges dans la carte historique */
 .sim-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+
+/* Un badge individuel (OF, PDC, Machine...) */
 .sim-badge { background: #f3f4f6; border-radius: 6px; padding: 3px 10px; font-size: 12px; color: #374151; }
 .sim-badge b { color: #1f2937; }
+
+/* Ligne de KPIs en bas de chaque carte historique */
 .sim-kpi { display: flex; gap: 18px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
 .sim-kpi-item { text-align: center; }
 .sim-kpi-val { font-size: 18px; font-weight: 700; color: #1f2937; }
 .sim-kpi-lbl { font-size: 10px; color: #9ca3af; }
+
+/* En-tête de section chronométrage : dégradé sombre */
 .chrono-header {
     background: linear-gradient(90deg,#1f2937,#374151);
     color: white; border-radius: 10px; padding: 12px 18px; margin-bottom: 12px;
     font-weight: 700; font-size: 16px;
 }
+
+/* Encadré vert pour afficher les stats de chronométrage */
 .chrono-stats {
     background: #f0fdf4; border: 1px solid #bbf7d0;
     border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #166534;
 }
+
+/* Bandeau "repos" orange dans les KPIs */
 .repos-banner {
     background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
     border: 2px solid #f97316; border-radius: 14px; padding: 18px 24px;
@@ -97,15 +151,20 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 .repos-title { font-size: 13px; color: #92400e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .repos-val { font-size: 36px; font-weight: 800; color: #f97316; }
 .repos-sub { font-size: 12px; color: #c2410c; margin-top: 2px; }
-/* Chrono machine badge */
+
+/* Badges de couleur pour identifier la machine (Opérateur / M1 / M2) dans le chrono */
 .mach-badge-op  { background:#e0e7ff; color:#3730a3; font-weight:700; border-radius:5px; padding:2px 8px; font-size:11px; }
 .mach-badge-m1  { background:#dbeafe; color:#1d4ed8; font-weight:700; border-radius:5px; padding:2px 8px; font-size:11px; }
 .mach-badge-m2  { background:#dcfce7; color:#15803d; font-weight:700; border-radius:5px; padding:2px 8px; font-size:11px; }
+
+/* En-tête de cycle machine M1 : dégradé bleu */
 .cycle-header-m1 {
     background: linear-gradient(90deg,#1d4ed8,#3b82f6);
     color:white; border-radius:10px; padding:10px 16px;
     font-weight:700; font-size:15px; margin: 12px 0 8px 0;
 }
+
+/* En-tête de cycle machine M2 : dégradé vert */
 .cycle-header-m2 {
     background: linear-gradient(90deg,#15803d,#22c55e);
     color:white; border-radius:10px; padding:10px 16px;
@@ -114,95 +173,136 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 </style>
 """, unsafe_allow_html=True)
 
+# URL du logo de l'entreprise (image hébergée en ligne)
 LOGO_URL = "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0"
+
+# Affiche le logo en haut de page avec une largeur de 250 pixels
 st.image(LOGO_URL, width=250)
 
 # ===================================================
-# DATABASE
+# BASE DE DONNÉES — comme un fichier structuré en C
 # ===================================================
 
+# Chemin absolu vers le fichier de base de données sur le disque
 DB_PATH = r"C:\Users\BFRANCOCANTERO\Downloads\Data\simogramme_data.db"
+
+# On essaie de créer le dossier et le fichier s'ils n'existent pas
 try:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    open(DB_PATH, 'a').close()
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)  # Crée le dossier si absent (exist_ok=True évite l'erreur si déjà présent)
+    open(DB_PATH, 'a').close()                             # Ouvre le fichier en mode "append" juste pour le créer s'il n'existe pas
 except Exception:
+    # Si le chemin est inaccessible (ex: pas sur ce PC), on utilise le dossier personnel de l'utilisateur
     DB_PATH = os.path.join(os.path.expanduser("~"), "simogramme_data.db")
 
+
 def init_database():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    """Crée la table SQL si elle n'existe pas encore — comme un fopen + struct en C."""
+    conn = sqlite3.connect(DB_PATH)   # Ouvre (ou crée) le fichier .db — comme fopen()
+    c = conn.cursor()                  # Curseur = outil pour envoyer des commandes SQL
+
+    # Crée la table "configurations" avec toutes ses colonnes si elle n'existe pas déjà
+    # INTEGER PRIMARY KEY AUTOINCREMENT = identifiant unique auto-incrémenté (comme un indice de tableau)
     c.execute('''CREATE TABLE IF NOT EXISTS configurations
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT, numero_of TEXT, reference_piece TEXT, numero_machine TEXT,
                   pdc TEXT, numero_article TEXT,
                   coef_temps_humain REAL, coef_temps_cycle REAL,
                   heures_travail REAL, machines TEXT, donnees TEXT, resultats TEXT)''')
+
+    # Récupère la liste des colonnes existantes pour vérifier si des colonnes ont été ajoutées plus tard
     cols = [r[1] for r in conn.execute("PRAGMA table_info(configurations)").fetchall()]
+
+    # Pour chaque colonne potentiellement manquante, on l'ajoute si elle n'existe pas (migration de schéma)
     for col, typ in [("numero_of","TEXT"), ("numero_article","TEXT"),
                      ("coef_temps_humain","REAL"), ("coef_temps_cycle","REAL")]:
         if col not in cols:
-            conn.execute(f"ALTER TABLE configurations ADD COLUMN {col} {typ} DEFAULT 1.0")
-    conn.commit()
-    conn.close()
+            conn.execute(f"ALTER TABLE configurations ADD COLUMN {col} {typ} DEFAULT 1.0")  # Ajoute la colonne manquante
+
+    conn.commit()   # Valide les modifications — comme fflush() en C
+    conn.close()    # Ferme le fichier — comme fclose() en C
+
 
 def save_configuration(data):
+    """Sauvegarde une simulation dans la base de données. Retourne True si succès."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)   # Ouvre la base de données
         conn.execute("""INSERT INTO configurations
                      (date, numero_of, reference_piece, numero_machine, pdc, numero_article,
                       coef_temps_humain, coef_temps_cycle, heures_travail, machines, donnees, resultats)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",   # Les "?" sont des paramètres (sécurité contre les injections SQL)
                   (data['date'], data['numero_of'], data['reference_piece'],
                    data['numero_machine'], data['pdc'], data['numero_article'],
                    data['coef_temps_humain'], data['coef_temps_cycle'],
                    data['heures_travail'], data['machines'], data['donnees'], data['resultats']))
-        conn.commit()
-        conn.close()
-        return True
+        conn.commit()   # Valide l'insertion
+        conn.close()    # Ferme la connexion
+        return True     # Indique que la sauvegarde a réussi
     except Exception as e:
-        st.error(f"Erreur sauvegarde: {e}")
-        return False
+        st.error(f"Erreur sauvegarde: {e}")   # Affiche l'erreur dans l'interface
+        return False                           # Indique l'échec
+
 
 def load_configurations():
+    """Charge toutes les simulations depuis la base de données, triées par date décroissante."""
     try:
         conn = sqlite3.connect(DB_PATH)
+        # pd.read_sql_query exécute une requête SQL et retourne directement un tableau pandas (DataFrame)
         df = pd.read_sql_query("SELECT * FROM configurations ORDER BY date DESC", conn)
         conn.close()
-        return df
+        return df   # Retourne le tableau de toutes les simulations
     except Exception as e:
         st.error(f"Erreur chargement: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame()   # Retourne un tableau vide en cas d'erreur
+
 
 def delete_configuration(config_id):
+    """Supprime une simulation par son identifiant unique."""
     try:
         conn = sqlite3.connect(DB_PATH)
-        conn.execute('DELETE FROM configurations WHERE id = ?', (config_id,))
+        conn.execute('DELETE FROM configurations WHERE id = ?', (config_id,))   # Supprime la ligne avec cet id
         conn.commit()
         conn.close()
     except Exception as e:
         st.error(f"Erreur suppression: {e}")
 
+
+# Appel immédiat pour s'assurer que la base de données est prête dès le démarrage
 init_database()
 
 # ===================================================
-# EXCEL EXPORT
+# EXPORT EXCEL — génère un fichier .xlsx en mémoire
 # ===================================================
 
 def build_excel(edited_df, machines, sidebar_info, resultats, img_bytes):
-    wb = Workbook()
-    DARK="1F2937"; ACCENT="F97316"; LIGHT="F3F4F6"; WHITE="FFFFFF"
+    """
+    Construit un fichier Excel complet avec 3 onglets :
+    - Synthèse     : informations générales + résultats
+    - Données saisies : tableau des étapes
+    - Simogramme   : image du graphique
+    Retourne les octets du fichier (pour le téléchargement).
+    """
+
+    wb = Workbook()   # Crée un nouveau classeur Excel vide
+
+    # Couleurs définies en hexadécimal (comme en CSS)
+    DARK="1F2937"    # Gris très foncé
+    ACCENT="F97316"  # Orange
+    LIGHT="F3F4F6"   # Gris très clair
+    WHITE="FFFFFF"   # Blanc
 
     def hdr(ws, row, col, value, bg=DARK, fg=WHITE, bold=True, size=11, align="center", border=True):
-        cell = ws.cell(row=row, column=col, value=value)
-        cell.font = Font(name="Arial", bold=bold, color=fg, size=size)
-        cell.fill = PatternFill("solid", fgColor=bg)
-        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=True)
+        """Écrit une cellule d'en-tête formatée (fond coloré, texte blanc/gras)."""
+        cell = ws.cell(row=row, column=col, value=value)   # Sélectionne la cellule
+        cell.font = Font(name="Arial", bold=bold, color=fg, size=size)   # Police
+        cell.fill = PatternFill("solid", fgColor=bg)                     # Couleur de fond
+        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=True)   # Alignement
         if border:
-            thin = Side(style="thin", color="CCCCCC")
+            thin = Side(style="thin", color="CCCCCC")   # Bordure fine grise
             cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
         return cell
 
     def val(ws, row, col, value, bg=WHITE, bold=False, align="center", color="1F2937"):
+        """Écrit une cellule de valeur formatée (fond blanc par défaut, texte normal)."""
         cell = ws.cell(row=row, column=col, value=value)
         cell.font = Font(name="Arial", bold=bold, color=color, size=10)
         cell.fill = PatternFill("solid", fgColor=bg)
@@ -211,43 +311,69 @@ def build_excel(edited_df, machines, sidebar_info, resultats, img_bytes):
         cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
         return cell
 
-    ws = wb.active; ws.title = "Synthèse"
-    ws.sheet_view.showGridLines = False
-    ws.column_dimensions["A"].width = 32
-    ws.column_dimensions["B"].width = 22
+    # --- Onglet 1 : Synthèse ---
+    ws = wb.active       # Récupère la feuille active (créée par défaut)
+    ws.title = "Synthèse"
+    ws.sheet_view.showGridLines = False   # Cache le quadrillage Excel
+
+    ws.column_dimensions["A"].width = 32   # Largeur de la colonne A
+    ws.column_dimensions["B"].width = 22   # Largeur de la colonne B
+
+    # Fusion des cellules A2:B2 pour le titre principal
     ws.merge_cells("A2:B2")
     hdr(ws,2,1,"RAPPORT SIMOGRAMME",bg=DARK,fg=WHITE,bold=True,size=14,align="center",border=False)
-    ws.row_dimensions[2].height = 36
+    ws.row_dimensions[2].height = 36   # Hauteur de la ligne 2
+
+    # Sous-titre avec les infos principales de la simulation
     ws.merge_cells("A3:B3")
     c = ws.cell(row=3,column=1,value=f"Article: {sidebar_info.get('numero_article','')}   |   OF: {sidebar_info['numero_of']}   |   Machine: {sidebar_info['numero_machine']}")
     c.font=Font(name="Arial",color="6B7280",size=10)
     c.fill=PatternFill("solid",fgColor=LIGHT)
     c.alignment=Alignment(horizontal="center",vertical="center")
-    ws.row_dimensions[3].height=20; ws.row_dimensions[4].height=8
-    hdr(ws,5,1,"IDENTIFICATION",bg=ACCENT); hdr(ws,5,2,"Valeur",bg=ACCENT)
+    ws.row_dimensions[3].height=20
+    ws.row_dimensions[4].height=8    # Ligne vide de séparation
+
+    # Section IDENTIFICATION
+    hdr(ws,5,1,"IDENTIFICATION",bg=ACCENT)
+    hdr(ws,5,2,"Valeur",bg=ACCENT)
+
+    # Liste des paires (étiquette, valeur) pour l'identification
     ident = [("Numéro d'article",sidebar_info.get("numero_article","")),
              ("Numéro OF",sidebar_info["numero_of"]),
              ("Référence pièce",sidebar_info["reference_piece"]),
              ("Numéro machine",sidebar_info["numero_machine"]),
              ("PDC",sidebar_info["pdc"]),
              ("Date",sidebar_info["date"])]
+
+    # Remplit les lignes d'identification en alternant blanc et gris clair (effet "zèbre")
     for i,(k,v) in enumerate(ident):
-        bg=WHITE if i%2==0 else LIGHT
-        val(ws,6+i,1,k,bg=bg,align="left"); val(ws,6+i,2,v,bg=bg)
-    r=6+len(ident)+1; ws.row_dimensions[r-1].height=8
-    hdr(ws,r,1,"COEFFICIENTS",bg=ACCENT); hdr(ws,r,2,"Valeur",bg=ACCENT)
+        bg=WHITE if i%2==0 else LIGHT   # Alternance pair/impair
+        val(ws,6+i,1,k,bg=bg,align="left")   # Colonne A : étiquette
+        val(ws,6+i,2,v,bg=bg)                 # Colonne B : valeur
+
+    r=6+len(ident)+1   # Calcule la ligne de départ de la prochaine section
+
+    # Section COEFFICIENTS
+    hdr(ws,r,1,"COEFFICIENTS",bg=ACCENT)
+    hdr(ws,r,2,"Valeur",bg=ACCENT)
     coefs=[("Coef. Temps Humain",sidebar_info["coef_temps_humain"]),
            ("Coef. Temps Cycle",sidebar_info["coef_temps_cycle"]),
            ("H/jour",sidebar_info["heures_travail"])]
     for i,(k,v) in enumerate(coefs):
         bg=WHITE if i%2==0 else LIGHT
-        val(ws,r+1+i,1,k,bg=bg,align="left"); val(ws,r+1+i,2,v,bg=bg)
-    r2=r+1+len(coefs)+1; ws.row_dimensions[r2-1].height=8
-    hdr(ws,r2,1,"RÉSULTATS",bg=ACCENT); hdr(ws,r2,2,"Valeur",bg=ACCENT)
-    res=resultats
-    # Use M1 results for main sheet, M2 appended below if present
+        val(ws,r+1+i,1,k,bg=bg,align="left")
+        val(ws,r+1+i,2,v,bg=bg)
+
+    r2=r+1+len(coefs)+1   # Ligne de départ de la section Résultats
+
+    # Section RÉSULTATS
+    hdr(ws,r2,1,"RÉSULTATS",bg=ACCENT)
+    hdr(ws,r2,2,"Valeur",bg=ACCENT)
+    res=resultats   # Raccourci vers le dictionnaire de résultats
+
+    # Liste de tous les résultats à afficher avec leurs valeurs arrondies
     results=[("Temps cycle final (s)",round(res.get("temps_cycle_final",0),4)),
-             ("Temps cycle final (UM)",round(res.get("temps_cycle_final",0)/36,4)),
+             ("Temps cycle final (UM)",round(res.get("temps_cycle_final",0)/36,4)),   # Conversion secondes → UM (unité machine)
              ("Temps machine (s)",round(res.get("total_machine_time",0),4)),
              ("Temps manuel TM (s)",round(res.get("total_operator_manual",0),4)),
              ("Temps parallèle TTM (s)",round(res.get("total_operator_parallel",0),4)),
@@ -261,142 +387,208 @@ def build_excel(edited_df, machines, sidebar_info, resultats, img_bytes):
              ("CODE TEMPS",res.get("code_temps","—"))]
     for i,(k,v) in enumerate(results):
         bg=WHITE if i%2==0 else LIGHT
-        bold_v=(k in("Temps cycle final (s)","CODE TEMPS","Repos / heure (min)"))
+        bold_v=(k in("Temps cycle final (s)","CODE TEMPS","Repos / heure (min)"))   # Met en gras certains résultats importants
         val(ws,r2+1+i,1,k,bg=bg,align="left")
         c=val(ws,r2+1+i,2,v,bg=bg,bold=bold_v)
-        if bold_v: c.font=Font(name="Arial",bold=True,color=ACCENT,size=11)
+        if bold_v: c.font=Font(name="Arial",bold=True,color=ACCENT,size=11)   # Orange pour les résultats importants
 
-    ws2=wb.create_sheet("Données saisies"); ws2.sheet_view.showGridLines=False
+    # --- Onglet 2 : Données saisies ---
+    ws2=wb.create_sheet("Données saisies")   # Crée un nouvel onglet
+    ws2.sheet_view.showGridLines=False
+
+    # Titre fusionné sur toute la largeur
     ws2.merge_cells("A1:K1")
     hdr(ws2,1,1,"DONNÉES SAISIES — TABLEAU DES ÉTAPES",bg=DARK,bold=True,size=12,align="center")
     ws2.row_dimensions[1].height=28
+
+    # En-têtes des colonnes du tableau
     headers=["Machine","Étape","Début (s)","Durée (s)","Fin (s)","TM","TT","TTM","TR","TZ","TF"]
-    widths=[10,28,12,12,12,6,6,6,6,6,6]
+    widths=[10,28,12,12,12,6,6,6,6,6,6]   # Largeurs correspondantes
     for ci,(ch,cw) in enumerate(zip(headers,widths)):
-        hdr(ws2,2,ci+1,ch,bg=ACCENT,size=10)
-        ws2.column_dimensions[get_column_letter(ci+1)].width=cw
+        hdr(ws2,2,ci+1,ch,bg=ACCENT,size=10)                                 # En-tête orange
+        ws2.column_dimensions[get_column_letter(ci+1)].width=cw              # Ajuste la largeur
+
+    # Couleurs de fond selon le type de temps
     TYPE_C={"TM":"FFE0B2","TT":"BBDEFB","TTM":"CFD8DC","TR":"F5F5F5","TZ":"EEEEEE"}
-    for ri,row in edited_df.iterrows():
-        r_xl=ri+3; bg=WHITE if ri%2==0 else LIGHT
+
+    # Remplit le tableau avec les données de chaque étape
+    for ri,row in edited_df.iterrows():   # iterrows() parcourt chaque ligne du DataFrame
+        r_xl=ri+3   # Ligne Excel = index pandas + 3 (car 2 lignes d'en-tête)
+        bg=WHITE if ri%2==0 else LIGHT   # Alternance de couleur
+
+        # Détermine la couleur de fond selon le type de temps coché
         tm=bool(row.get("TM",False)); tt=bool(row.get("TT",False))
         ttm=bool(row.get("TTM",False)); tr=bool(row.get("TR",False)); tz=bool(row.get("TZ",False))
-        if ttm: bg=TYPE_C["TTM"]
+        if ttm: bg=TYPE_C["TTM"]        # Priorité à TTM
         elif tm: bg=TYPE_C["TM"]
         elif tt: bg=TYPE_C["TT"]
         elif tr: bg=TYPE_C["TR"]
         elif tz: bg=TYPE_C["TZ"]
+
+        # Prépare les valeurs à écrire dans chaque cellule
         cells=[row.get("Sys",""),str(row.get("Etape","")),
                row.get("Debut",0),row.get("Duree",0),row.get("Fin",0),
-               "✓" if tm else "","✓" if tt else "","✓" if ttm else "",
+               "✓" if tm else "","✓" if tt else "","✓" if ttm else "",   # Coches visuelles
                "✓" if tr else "","✓" if tz else "",
                "✓" if bool(row.get("TF",False)) else ""]
         for ci,cv in enumerate(cells):
-            val(ws2,r_xl,ci+1,cv,bg=bg,align="left" if ci==1 else "center")
-    leg_r=len(edited_df)+4; ws2.row_dimensions[leg_r].height=8; leg_r+=1
+            val(ws2,r_xl,ci+1,cv,bg=bg,align="left" if ci==1 else "center")   # Étape alignée à gauche, reste centré
+
+    # Légende des couleurs en bas du tableau
+    leg_r=len(edited_df)+4   # Ligne de la légende (après les données + marge)
+    ws2.row_dimensions[leg_r].height=8   # Ligne de séparation vide
+    leg_r+=1
     hdr(ws2,leg_r,1,"LÉGENDE",bg=DARK,size=9)
     for li,(code,color,desc) in enumerate([("TM","FFE0B2","Temps Manuel"),("TT","BBDEFB","Temps Machine"),
                                             ("TTM","CFD8DC","Temps Parallèle"),("TR","F5F5F5","Temps Repos"),
                                             ("TZ","EEEEEE","Temps Masqué")]):
         c1=ws2.cell(row=leg_r+1+li,column=1,value=code)
-        c1.font=Font(name="Arial",bold=True,size=9); c1.fill=PatternFill("solid",fgColor=color)
+        c1.font=Font(name="Arial",bold=True,size=9)
+        c1.fill=PatternFill("solid",fgColor=color)   # Fond de la couleur correspondante
         c1.alignment=Alignment(horizontal="center",vertical="center")
         c2=ws2.cell(row=leg_r+1+li,column=2,value=desc)
-        c2.font=Font(name="Arial",size=9); c2.fill=PatternFill("solid",fgColor=color)
+        c2.font=Font(name="Arial",size=9)
+        c2.fill=PatternFill("solid",fgColor=color)
         c2.alignment=Alignment(horizontal="left",vertical="center")
 
-    ws3=wb.create_sheet("Simogramme"); ws3.sheet_view.showGridLines=False
+    # --- Onglet 3 : Simogramme (image) ---
+    ws3=wb.create_sheet("Simogramme")
+    ws3.sheet_view.showGridLines=False
     ws3.merge_cells("A1:L1")
     hdr(ws3,1,1,"SIMOGRAMME",bg=DARK,bold=True,size=14,align="center")
-    ws3.row_dimensions[1].height=32; ws3.column_dimensions["A"].width=18
-    xl_img=XLImage(io.BytesIO(img_bytes)); xl_img.width=1100; xl_img.height=367
-    ws3.add_image(xl_img,"A3")
+    ws3.row_dimensions[1].height=32
+    ws3.column_dimensions["A"].width=18
 
-    buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    return buf.getvalue()
+    # Insère l'image du simogramme (passée en bytes) à la position A3
+    xl_img=XLImage(io.BytesIO(img_bytes))   # Crée un objet image à partir des octets PNG
+    xl_img.width=1100; xl_img.height=367   # Taille d'affichage dans Excel
+    ws3.add_image(xl_img,"A3")             # Positionne l'image à la cellule A3
+
+    # Sauvegarde le classeur en mémoire (pas sur le disque) et retourne les octets
+    buf=io.BytesIO()       # Buffer mémoire — comme un tableau d'octets en C
+    wb.save(buf)           # Sauvegarde le classeur dans le buffer
+    buf.seek(0)            # Remet le curseur au début (comme rewind() en C)
+    return buf.getvalue()  # Retourne tous les octets du fichier Excel
 
 # ===================================================
-# LOGIN
+# LOGIN — vérification du mot de passe
 # ===================================================
 
+# Initialise la variable de session "logged_in" à False si elle n'existe pas encore
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
+# Si l'utilisateur n'est pas connecté, affiche uniquement la page de connexion
 if not st.session_state["logged_in"]:
     st.markdown("## Connexion - Simogramme")
+
+    # Divise l'écran en 3 colonnes, utilise seulement la colonne du milieu (centrage)
     _,col2,_=st.columns([1,2,1])
     with col2:
-        user=st.text_input("Utilisateur"); pwd=st.text_input("Mot de passe",type="password")
+        user=st.text_input("Utilisateur")                  # Champ texte pour le nom d'utilisateur
+        pwd=st.text_input("Mot de passe",type="password")  # Champ texte masqué pour le mot de passe
+
         if st.button("Se connecter"):
-            if user=="admin" and pwd=="1234":
-                st.session_state["logged_in"]=True; st.rerun()
+            if user=="admin" and pwd=="1234":              # Vérification simple (à renforcer en production !)
+                st.session_state["logged_in"]=True         # Marque l'utilisateur comme connecté
+                st.rerun()                                  # Recharge la page pour afficher l'interface principale
             else:
-                st.error("Identifiants incorrects")
-    st.stop()
+                st.error("Identifiants incorrects")        # Affiche un message d'erreur
+
+    st.stop()   # Arrête l'exécution du reste du script si non connecté (comme return dans main en C)
 
 # ===================================================
-# SESSION STATE
+# SESSION STATE — initialisation des variables globales
 # ===================================================
 
-for k,v in [("machines",["M1"]),("show_history",False),("excel_bytes",None),
-             ("fig_bytes",None),("pending_save",None),("editor_version",0),
-             ("loaded_config",None),("chrono_etapes",[]),("show_chrono",False)]:
+# Initialise toutes les variables de session avec leurs valeurs par défaut
+# C'est comme déclarer et initialiser des variables globales en C
+# La syntaxe "if k not in st.session_state" évite d'écraser les valeurs existantes lors des rechargements
+for k,v in [("machines",["M1"]),          # Liste des machines (commence avec une seule : M1)
+             ("show_history",False),        # Booléen : afficher l'historique ?
+             ("excel_bytes",None),          # Octets du fichier Excel généré (None = pas encore généré)
+             ("fig_bytes",None),            # Octets de l'image PNG du simogramme
+             ("pending_save",None),         # Données en attente de sauvegarde
+             ("editor_version",0),          # Compteur de version pour forcer le rechargement des tableaux
+             ("loaded_config",None),        # Configuration chargée depuis l'historique
+             ("chrono_etapes",[]),          # Liste des séquences de chronométrage
+             ("show_chrono",False)]:        # Booléen : afficher le module de chronométrage ?
     if k not in st.session_state:
         st.session_state[k]=v
 
 # ===================================================
-# APPLY LOADED CONFIG
+# CHARGEMENT D'UNE CONFIGURATION DEPUIS L'HISTORIQUE
 # ===================================================
 
+# Si une configuration a été chargée depuis l'historique, on restaure toutes ses valeurs
 if st.session_state["loaded_config"] is not None:
-    cfg=st.session_state["loaded_config"]
+    cfg=st.session_state["loaded_config"]   # Raccourci vers la configuration chargée
+
+    # Restaure les champs texte de la sidebar (avec valeur par défaut "" si absent)
     for key,field,default in [
-        ("num_of","numero_of",""),("ref_piece","reference_piece",""),
-        ("num_machine","numero_machine",""),("pdc","pdc",""),
+        ("num_of","numero_of",""),
+        ("ref_piece","reference_piece",""),
+        ("num_machine","numero_machine",""),
+        ("pdc","pdc",""),
         ("num_art","numero_article","")]:
         st.session_state[key]=str(cfg.get(field,"") or "")
+
+    # Restaure les champs numériques (coefficients, heures)
     for key,field,default in [
         ("coef_th","coef_temps_humain",1.0),
         ("coef_tc","coef_temps_cycle",1.0),
         ("heures","heures_travail",7.0)]:
         st.session_state[key]=float(cfg.get(field,default) or default)
+
+    # Restaure la liste des machines (stockée en JSON dans la BDD)
     try:
-        machines_r=json.loads(cfg.get("machines",'["M1"]'))
+        machines_r=json.loads(cfg.get("machines",'["M1"]'))   # Décode le JSON en liste Python
     except Exception:
-        machines_r=["M1"]
+        machines_r=["M1"]   # Valeur par défaut si le JSON est invalide
     st.session_state["machines"]=machines_r
+
+    # Restaure les données des tableaux d'étapes pour chaque machine
     try:
         donnees_str=cfg.get("donnees","")
         if donnees_str:
-            df_all=pd.read_json(io.StringIO(donnees_str))
+            df_all=pd.read_json(io.StringIO(donnees_str))   # Reconvertit le JSON en DataFrame
+
+            # Renomme les colonnes courtes en colonnes avec emoji (format d'affichage)
             rename_map={"TM":"TM 🕐","TT":"TT 🤖","TTM":"TTM ⚡","TR":"TR ☕","TZ":"TZ ⚫","TF":"TF 🎨"}
             df_all.rename(columns=rename_map,inplace=True)
+
+            # Sépare les données par machine et stocke chacune dans la session
             for m in machines_r:
                 df_m=df_all[df_all["Sys"]==m].copy() if "Sys" in df_all.columns else df_all.copy()
-                df_m.drop(columns=["Sys","Fin"],errors="ignore",inplace=True)
-                df_m.reset_index(drop=True,inplace=True)
-                st.session_state[f"init_data_{m}"]=df_m
+                df_m.drop(columns=["Sys","Fin"],errors="ignore",inplace=True)   # Supprime les colonnes inutiles
+                df_m.reset_index(drop=True,inplace=True)                        # Réindexe de 0
+                st.session_state[f"init_data_{m}"]=df_m                         # Stocke sous la clé "init_data_M1" etc.
     except Exception as e:
         st.warning(f"Impossible de restaurer les tables: {e}")
-    st.session_state["editor_version"]+=1
-    st.session_state["loaded_config"]=None
+
+    st.session_state["editor_version"]+=1    # Incrémente la version pour forcer le rechargement des tableaux
+    st.session_state["loaded_config"]=None   # Réinitialise pour ne pas recharger indéfiniment
 
 # ===================================================
-# SIDEBAR
+# SIDEBAR — panneau de configuration à gauche
 # ===================================================
 
-with st.sidebar:
-    st.image(LOGO_URL,width=220)
+with st.sidebar:   # Tout ce bloc est affiché dans la barre latérale gauche
+    st.image(LOGO_URL,width=220)   # Logo en haut de la sidebar
     st.title("Configuration")
+
+    # --- Informations de production ---
     st.markdown("## Informations production")
-    numero_of      =st.text_input("Numéro OF",           key="num_of")
-    numero_article =st.text_input("Numéro d'article",    key="num_art")
-    reference_piece=st.text_input("Référence pièce",     key="ref_piece")
-    numéro_machine =st.text_input("Numéro de la machine",key="num_machine")
-    pdc            =st.text_input("PDC",                 key="pdc")
+    numero_of      =st.text_input("Numéro OF",            key="num_of")      # Numéro d'Ordre de Fabrication
+    numero_article =st.text_input("Numéro d'article",     key="num_art")     # Référence article produit
+    reference_piece=st.text_input("Référence pièce",      key="ref_piece")   # Code pièce
+    numéro_machine =st.text_input("Numéro de la machine", key="num_machine") # Identifiant machine
+    pdc            =st.text_input("PDC",                  key="pdc")         # Poste De Charge
 
-    st.markdown("---")
+    st.markdown("---")   # Ligne de séparation horizontale
+
+    # --- Coefficient Temps Humain ---
     st.markdown("## Coefficients")
-
     st.markdown("### ⏱️ Coef. Temps Humain")
     st.caption("Appliqué sur le temps manuel opérateur (ex: 1.10 = +10%)")
     coef_temps_humain = st.number_input(
@@ -404,8 +596,9 @@ with st.sidebar:
         min_value=0.01, max_value=10.0, value=1.0, step=0.05,
         key="coef_th",
         help="Remplace le coefficient JA. Multiplie le temps manuel de l'opérateur."
-    )
+    )   # Valeur entre 0.01 et 10.0, par pas de 0.05
 
+    # --- Coefficient Temps Cycle ---
     st.markdown("---")
     st.markdown("### 🔄 Coef. Temps Cycle")
     st.caption("Appliqué sur le temps cycle après coef. humain (ex: 1.50 = +50% → repos = 33% du nouveau TC)")
@@ -416,49 +609,66 @@ with st.sidebar:
         help="Remplace le coefficient REPO. Multiplie le temps cycle total."
     )
 
+    # Si le coef est > 1, affiche un message informatif sur le pourcentage de repos
     if coef_temps_cycle > 1.0:
-        pct_base  = round((coef_temps_cycle - 1) * 100, 1)
-        pct_final = round((1 - 1/coef_temps_cycle) * 100, 1)
+        pct_base  = round((coef_temps_cycle - 1) * 100, 1)          # Pourcentage ajouté au TC de base
+        pct_final = round((1 - 1/coef_temps_cycle) * 100, 1)        # Pourcentage du nouveau TC = repos
         st.info(f"➕ **+{pct_base}%** du TC de base ajouté\n\n⏸️ **{pct_final}%** du nouveau TC = repos")
     else:
         st.info("Coef = 1.0 → pas de temps de repos ajouté")
 
     st.markdown("---")
+
+    # Heures de travail par jour (utilisé pour calculer les pièces/jour)
     heures_travail=st.number_input("Heures travail/jour",min_value=1.0,max_value=24.0,value=7.0,step=0.5,key="heures")
 
     st.markdown("---")
+
+    # Bouton pour ajouter une nouvelle machine (M2, M3, etc.)
     if st.button("➕ Ajouter machine"):
-        new_m=f"M{len(st.session_state['machines'])+1}"
-        st.session_state["machines"].append(new_m); st.rerun()
+        new_m=f"M{len(st.session_state['machines'])+1}"   # Nom automatique : M2, M3...
+        st.session_state["machines"].append(new_m)         # Ajoute à la liste
+        st.rerun()                                          # Recharge la page pour afficher le nouveau tableau
 
     st.markdown("---")
+
+    # --- Modules ---
     st.markdown("## Modules")
     if st.button("⏱️ Chronométrage"):
+        # Bascule l'affichage du module chrono (True/False)
         st.session_state["show_chrono"]=not st.session_state.get("show_chrono",False)
         st.rerun()
     if st.button("📊 Voir historique"):
-        st.session_state["show_history"]=True; st.rerun()
+        st.session_state["show_history"]=True
+        st.rerun()
     if st.button("❌ Fermer historique"):
-        st.session_state["show_history"]=False; st.rerun()
-    st.caption(f"DB: {DB_PATH}")
+        st.session_state["show_history"]=False
+        st.rerun()
+
+    st.caption(f"DB: {DB_PATH}")   # Affiche le chemin de la base de données en petit texte
 
 # ===================================================
-# HISTORIQUE
+# HISTORIQUE — affichage des simulations passées
 # ===================================================
 
 if st.session_state["show_history"]:
     st.markdown("## Historique des simulations")
-    df_hist=load_configurations()
+    df_hist=load_configurations()   # Charge toutes les simulations depuis la BDD
+
     if not df_hist.empty:
+        # Parcourt chaque simulation et l'affiche sous forme de carte HTML
         for _,row in df_hist.iterrows():
+            # Récupère les champs avec valeur par défaut "—" si absent
             art  =row.get("numero_article","") or "—"
             of_v =row.get("numero_of","") or "—"
             pdc_v=row.get("pdc","") or "—"
             m_v  =row.get("numero_machine","") or "—"
             ref_v=row.get("reference_piece","") or "—"
-            d_v  =str(row.get("date",""))[:16]
+            d_v  =str(row.get("date",""))[:16]   # Tronque la date à 16 caractères (sans les secondes)
             th_v =row.get("coef_temps_humain",1)
             tc_v =row.get("coef_temps_cycle",1)
+
+            # Décode les résultats JSON stockés dans la BDD
             try:
                 res=json.loads(row.get("resultats","{}"))
                 tc_s=round(res.get("temps_cycle_final",0),2)
@@ -467,8 +677,9 @@ if st.session_state["show_history"]:
                 code=res.get("code_temps","—")
                 rph =round(res.get("repos_par_heure_min",0),1)
             except Exception:
-                tc_s=ph=pj=rph=0; code="—"
+                tc_s=ph=pj=rph=0; code="—"   # Valeurs par défaut si le JSON est invalide
 
+            # Affiche la carte HTML de la simulation
             st.markdown(f"""
             <div class="sim-card">
               <div class="sim-article">{art}</div>
@@ -491,117 +702,141 @@ if st.session_state["show_history"]:
             </div>
             """, unsafe_allow_html=True)
 
+            # Boutons Charger et Supprimer côte à côte
             col_load, col_del = st.columns([1,1])
             with col_load:
                 if st.button("📂 Charger",key=f"load_{row['id']}",use_container_width=True):
-                    st.session_state["loaded_config"]=row.to_dict()
-                    st.session_state["show_history"]=False; st.rerun()
+                    st.session_state["loaded_config"]=row.to_dict()   # Stocke la config à charger
+                    st.session_state["show_history"]=False             # Ferme l'historique
+                    st.rerun()
             with col_del:
                 if st.button("🗑️ Supprimer",key=f"del_{row['id']}",use_container_width=True):
-                    delete_configuration(int(row["id"])); st.rerun()
-            st.markdown("<div style='height:4px'></div>",unsafe_allow_html=True)
+                    delete_configuration(int(row["id"]))   # Supprime en BDD
+                    st.rerun()                             # Recharge pour masquer la carte supprimée
+
+            st.markdown("<div style='height:4px'></div>",unsafe_allow_html=True)   # Petit espace entre les cartes
     else:
         st.info("Aucune simulation sauvegardée")
         st.caption(f"DB: {DB_PATH}")
+
     st.markdown("---")
 
 # ===================================================
-# MODULE CHRONOMÉTRAGE — avec coef par séquence + sélecteur machine
+# MODULE CHRONOMÉTRAGE
 # ===================================================
 
-if st.session_state.get("show_chrono", False):
+if st.session_state.get("show_chrono", False):   # Affiche le module seulement si activé
 
+    # CSS spécifique au module de chronométrage (styles du tableau récapitulatif)
     st.markdown("""
     <style>
+    /* Titre du module chrono */
     .chrono-title {
         background: linear-gradient(90deg,#1f2937,#374151);
         color:white; border-radius:10px; padding:14px 20px;
         font-weight:700; font-size:18px; margin-bottom:16px; letter-spacing:0.5px;
     }
+    /* Tableau récapitulatif : défilement horizontal si trop large */
     .chrono-table-wrap { overflow-x: auto; }
+    /* Style général du tableau */
     table.chrono-tbl {
         border-collapse: collapse; width:100%;
         font-size: 12px; font-family: Arial, sans-serif;
     }
+    /* En-têtes du tableau */
     table.chrono-tbl th {
         background:#1f2937; color:white; padding:6px 8px;
         text-align:center; border:1px solid #374151; white-space:nowrap;
     }
-    table.chrono-tbl th.seq-col { background:#374151; }
-    table.chrono-tbl th.fixed-col { background:#f97316; color:white; }
+    table.chrono-tbl th.seq-col { background:#374151; }    /* En-tête "Séquence" légèrement plus clair */
+    table.chrono-tbl th.fixed-col { background:#f97316; color:white; }  /* En-tête "Stats" en orange */
+    /* Cellules standard */
     table.chrono-tbl td {
         border:1px solid #d1d5db; padding:4px 6px;
         text-align:center; background:white;
     }
-    table.chrono-tbl tr:nth-child(even) td { background:#f9fafb; }
+    table.chrono-tbl tr:nth-child(even) td { background:#f9fafb; }   /* Alternance couleur lignes */
+    /* Cellule nom de séquence : fond jaune clair */
     table.chrono-tbl td.seq-label {
         background:#fef3c7; font-weight:700; color:#92400e; text-align:left; white-space:nowrap;
     }
-    table.chrono-tbl td.stat-moy { background:#d1fae5; font-weight:700; color:#065f46; }
-    table.chrono-tbl td.stat-dp { background:#fef9c3; color:#713f12; }
-    table.chrono-tbl td.stat-je { background:#ede9fe; color:#4c1d95; font-weight:700; }
-    table.chrono-tbl td.stat-freq { background:#e0f2fe; color:#0c4a6e; font-weight:700; }
-    table.chrono-tbl td.stat-coef { background:#fce7f3; color:#9d174d; font-weight:700; }
-    table.chrono-tbl td.stat-final { background:#dcfce7; font-weight:700; color:#15803d; font-size:13px; }
-    table.chrono-tbl td.mach-op  { background:#e0e7ff; color:#3730a3; font-weight:700; }
-    table.chrono-tbl td.mach-m1  { background:#dbeafe; color:#1d4ed8; font-weight:700; }
-    table.chrono-tbl td.mach-m2  { background:#dcfce7; color:#15803d; font-weight:700; }
+    /* Cellules statistiques avec couleurs distinctives */
+    table.chrono-tbl td.stat-moy  { background:#d1fae5; font-weight:700; color:#065f46; }  /* Moyenne : vert */
+    table.chrono-tbl td.stat-dp   { background:#fef9c3; color:#713f12; }                   /* Écart-type : jaune */
+    table.chrono-tbl td.stat-je   { background:#ede9fe; color:#4c1d95; font-weight:700; }  /* Type JE : violet */
+    table.chrono-tbl td.stat-freq { background:#e0f2fe; color:#0c4a6e; font-weight:700; }  /* Fréquence : bleu clair */
+    table.chrono-tbl td.stat-coef { background:#fce7f3; color:#9d174d; font-weight:700; }  /* Coef : rose */
+    table.chrono-tbl td.stat-final{ background:#dcfce7; font-weight:700; color:#15803d; font-size:13px; }  /* Final : vert foncé */
+    /* Couleurs de machine dans le tableau */
+    table.chrono-tbl td.mach-op   { background:#e0e7ff; color:#3730a3; font-weight:700; }  /* Opérateur : indigo */
+    table.chrono-tbl td.mach-m1   { background:#dbeafe; color:#1d4ed8; font-weight:700; }  /* M1 : bleu */
+    table.chrono-tbl td.mach-m2   { background:#dcfce7; color:#15803d; font-weight:700; }  /* M2 : vert */
     </style>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="chrono-title">⏱️ Feuille de relevés chronométrés</div>', unsafe_allow_html=True)
 
+    # Types de temps disponibles dans le sélecteur
     TYPE_OPTIONS = ["TM", "TT", "TTM", "TR", "TZ", "TF"]
-    # Machine options for chronométrage: dynamic from session machines + Opérateur
+    # Options de machine : Opérateur + toutes les machines de la session
     MACH_OPTIONS = ["Opérateur"] + st.session_state["machines"]
-    N_MAX_COL = 15
-    DEFAULT_N_COL = 5
+    N_MAX_COL = 15      # Nombre maximum de colonnes de mesures
+    DEFAULT_N_COL = 5   # Nombre de colonnes par défaut
 
+    # Initialise le nombre de colonnes si pas encore défini
     if "chrono_n_col" not in st.session_state:
         st.session_state["chrono_n_col"] = DEFAULT_N_COL
+
+    # Initialise la liste des séquences si vide ou absente
     if "chrono_etapes" not in st.session_state or not st.session_state["chrono_etapes"]:
         st.session_state["chrono_etapes"] = [
             {"nom":"Séquence 1","type":"TM","freq":1,"coef":1.0,"machine":"Opérateur","prises":[0.0]*DEFAULT_N_COL}
-        ]
+        ]   # Une seule séquence par défaut avec 5 mesures à 0
 
-    n_col = st.session_state["chrono_n_col"]
+    n_col = st.session_state["chrono_n_col"]   # Raccourci vers le nombre de colonnes actuel
 
+    # Boutons de contrôle du tableau (ajouter/supprimer lignes et colonnes)
     tb1,tb2,tb3,tb4,tb5 = st.columns([2,2,2,2,2])
     with tb1:
         if st.button("➕ Séquence", key="chrono_add_row", use_container_width=True):
             idx_new = len(st.session_state["chrono_etapes"])+1
+            # Ajoute une nouvelle séquence vide à la liste
             st.session_state["chrono_etapes"].append(
                 {"nom":f"Séquence {idx_new}","type":"TM","freq":1,"coef":1.0,"machine":"Opérateur","prises":[0.0]*n_col}
             )
             st.rerun()
     with tb2:
         if st.button("➖ Séquence", key="chrono_del_row", use_container_width=True):
-            if len(st.session_state["chrono_etapes"])>1:
-                st.session_state["chrono_etapes"].pop()
+            if len(st.session_state["chrono_etapes"])>1:   # Garde au moins 1 séquence
+                st.session_state["chrono_etapes"].pop()    # Supprime la dernière séquence
                 st.rerun()
     with tb3:
         if st.button("➕ Colonne", key="chrono_add_col", use_container_width=True):
             if n_col < N_MAX_COL:
                 st.session_state["chrono_n_col"] = n_col+1
                 for e in st.session_state["chrono_etapes"]:
-                    e["prises"].append(0.0)
+                    e["prises"].append(0.0)   # Ajoute une mesure à 0 pour chaque séquence
                 st.rerun()
     with tb4:
         if st.button("➖ Colonne", key="chrono_del_col", use_container_width=True):
             if n_col > 1:
                 st.session_state["chrono_n_col"] = n_col-1
                 for e in st.session_state["chrono_etapes"]:
-                    e["prises"] = e["prises"][:n_col-1]
+                    e["prises"] = e["prises"][:n_col-1]   # Tronque la liste des mesures
                 st.rerun()
     with tb5:
         if st.button("🗑️ Réinitialiser", key="chrono_reset", use_container_width=True):
+            # Remet tout à zéro
             st.session_state["chrono_etapes"] = [
                 {"nom":"Séquence 1","type":"TM","freq":1,"coef":1.0,"machine":"Opérateur","prises":[0.0]*DEFAULT_N_COL}
             ]
             st.session_state["chrono_n_col"] = DEFAULT_N_COL
             st.rerun()
 
+    # Affiche le résumé du nombre de mesures
     st.markdown(f"**{n_col} mesures par séquence** — colonnes : {n_col} | séquences : {len(st.session_state['chrono_etapes'])}")
+
+    # Message d'aide sur les paramètres coef et machine
     st.markdown("""
     <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#0369a1;">
     <b>🔢 Coef. séquence</b> — Multiplie la durée finale (après ÷ fréquence) avant transfert vers le tableau.<br>
@@ -610,36 +845,40 @@ if st.session_state.get("show_chrono", False):
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    etapes_del = []
+    etapes_del = []   # Liste des indices des séquences à supprimer (remplie par les boutons 🗑️)
+
+    # Parcourt et affiche chaque séquence de chronométrage
     for idx, etape in enumerate(st.session_state["chrono_etapes"]):
-        # Pad / trim prises
+        # S'assure que la liste de mesures a exactement n_col éléments
         while len(etape["prises"]) < n_col:
-            etape["prises"].append(0.0)
-        etape["prises"] = etape["prises"][:n_col]
-        # Ensure new keys exist in old records
+            etape["prises"].append(0.0)        # Complète avec des zéros si trop court
+        etape["prises"] = etape["prises"][:n_col]   # Tronque si trop long
+
+        # Compatibilité avec les anciens enregistrements sans les clés "coef" et "machine"
         if "coef" not in etape: etape["coef"] = 1.0
         if "machine" not in etape: etape["machine"] = "Opérateur"
 
-        vals = [v for v in etape["prises"] if v > 0]
-        moy_raw = sum(vals)/len(vals) if vals else 0.0
-        freq    = etape.get("freq", 1) or 1
-        coef_seq = etape.get("coef", 1.0) or 1.0
-        is_tf   = etape["type"] == "TF"
-        moy_freq = round(moy_raw / freq, 4) if is_tf else round(moy_raw, 4)
-        moy_final = round(moy_freq * coef_seq, 4)
-        dp      = round((sum((v-moy_raw)**2 for v in vals)/len(vals))**0.5, 4) if len(vals)>1 else 0.0
-        n_valid = len(vals)
+        # Calcul des statistiques de cette séquence
+        vals = [v for v in etape["prises"] if v > 0]   # Ne garde que les valeurs > 0 (mesures saisies)
+        moy_raw = sum(vals)/len(vals) if vals else 0.0  # Moyenne brute des mesures valides
+        freq    = etape.get("freq", 1) or 1              # Fréquence (pour TF : diviseur)
+        coef_seq = etape.get("coef", 1.0) or 1.0        # Coefficient multiplicateur
+        is_tf   = etape["type"] == "TF"                  # True si c'est un temps de fréquence
+        moy_freq = round(moy_raw / freq, 4) if is_tf else round(moy_raw, 4)   # Applique la division par fréquence si TF
+        moy_final = round(moy_freq * coef_seq, 4)        # Valeur finale après coef
+        dp = round((sum((v-moy_raw)**2 for v in vals)/len(vals))**0.5, 4) if len(vals)>1 else 0.0   # Écart-type (dispersion)
+        n_valid = len(vals)   # Nombre de mesures valides
 
-        # Machine color for header
+        # Détermine la couleur d'en-tête selon la machine assignée
         mach_cur = etape.get("machine","Opérateur")
         if mach_cur == "M1":
-            mach_color = "#dbeafe"; mach_text = "#1d4ed8"
+            mach_color = "#dbeafe"; mach_text = "#1d4ed8"    # Bleu pour M1
         elif mach_cur == "M2":
-            mach_color = "#dcfce7"; mach_text = "#15803d"
+            mach_color = "#dcfce7"; mach_text = "#15803d"    # Vert pour M2
         else:
-            mach_color = "#e0e7ff"; mach_text = "#3730a3"
+            mach_color = "#e0e7ff"; mach_text = "#3730a3"    # Indigo pour Opérateur
 
-        # Row header with machine badge
+        # Affiche l'en-tête coloré de la séquence avec son numéro et sa machine
         st.markdown(
             f'<div style="background:{mach_color};border-radius:8px;padding:6px 12px;margin-bottom:4px;">'
             f'<span style="font-weight:700;color:{mach_text};font-size:13px;">#{idx+1} — {etape["nom"]}</span>'
@@ -648,32 +887,31 @@ if st.session_state.get("show_chrono", False):
             unsafe_allow_html=True
         )
 
-        # Controls row: name | type | freq | coef | machine | delete
+        # Ligne de contrôles : nom | type | fréquence | coef | machine | supprimer
         hc1,hc2,hc3,hc4,hc5,hc6 = st.columns([2.5, 1.0, 1.0, 1.0, 1.2, 0.4])
         with hc1:
             nom = st.text_input("Séquence", value=etape["nom"],
                                 key=f"cn_{idx}", label_visibility="collapsed",
                                 placeholder=f"Séquence {idx+1}")
-            st.session_state["chrono_etapes"][idx]["nom"] = nom
+            st.session_state["chrono_etapes"][idx]["nom"] = nom   # Sauvegarde le nouveau nom
         with hc2:
             t_sel = st.selectbox("Type", TYPE_OPTIONS,
                                  index=TYPE_OPTIONS.index(etape["type"]) if etape["type"] in TYPE_OPTIONS else 0,
                                  key=f"ct_{idx}", label_visibility="collapsed")
             st.session_state["chrono_etapes"][idx]["type"] = t_sel
         with hc3:
-            if t_sel == "TF":
+            if t_sel == "TF":   # Fréquence uniquement disponible pour le type TF
                 freq_in = st.number_input("Fréq.", min_value=1, max_value=1000,
                                           value=int(etape.get("freq",1)),
                                           key=f"cf_{idx}", label_visibility="collapsed")
                 st.session_state["chrono_etapes"][idx]["freq"] = freq_in
                 freq = freq_in
-                moy_freq = round(moy_raw / freq, 4) if moy_raw > 0 else 0.0
+                moy_freq = round(moy_raw / freq, 4) if moy_raw > 0 else 0.0   # Recalcule avec la nouvelle fréquence
             else:
-                st.session_state["chrono_etapes"][idx]["freq"] = 1
+                st.session_state["chrono_etapes"][idx]["freq"] = 1   # Fréquence = 1 par défaut (pas de division)
                 st.markdown("<div style='padding-top:8px;color:#9ca3af;font-size:11px'>fréq. N/A</div>",
-                            unsafe_allow_html=True)
+                            unsafe_allow_html=True)   # Texte grisé pour indiquer que la fréquence n'est pas applicable
         with hc4:
-            # Coef par séquence
             coef_in = st.number_input("Coef", min_value=0.01, max_value=10.0,
                                       value=float(etape.get("coef",1.0)),
                                       step=0.05, key=f"ccoef_{idx}",
@@ -681,21 +919,20 @@ if st.session_state.get("show_chrono", False):
                                       help="Multiplie la durée finale de cette séquence avant transfert")
             st.session_state["chrono_etapes"][idx]["coef"] = coef_in
             coef_seq = coef_in
-            moy_final = round(moy_freq * coef_seq, 4)
+            moy_final = round(moy_freq * coef_seq, 4)   # Recalcule avec le nouveau coef
         with hc5:
-            # Machine selector — rebuild MACH_OPTIONS dynamically
-            mach_opts = ["Opérateur"] + st.session_state["machines"]
+            mach_opts = ["Opérateur"] + st.session_state["machines"]   # Options dynamiques
             cur_mach = etape.get("machine","Opérateur")
-            if cur_mach not in mach_opts: cur_mach = "Opérateur"
+            if cur_mach not in mach_opts: cur_mach = "Opérateur"       # Valeur de repli si machine supprimée
             mach_sel = st.selectbox("Machine", mach_opts,
                                     index=mach_opts.index(cur_mach),
                                     key=f"cmach_{idx}", label_visibility="collapsed")
             st.session_state["chrono_etapes"][idx]["machine"] = mach_sel
         with hc6:
             if st.button("🗑️", key=f"cdel_{idx}"):
-                etapes_del.append(idx)
+                etapes_del.append(idx)   # Marque cette séquence pour suppression (effectuée après la boucle)
 
-        # Measurement inputs
+        # Champs de saisie des mesures (une case par mesure)
         pcols = st.columns(n_col)
         new_prises = []
         for pi in range(n_col):
@@ -704,12 +941,12 @@ if st.session_state.get("show_chrono", False):
                                      value=float(etape["prises"][pi]),
                                      key=f"cp_{idx}_{pi}",
                                      label_visibility="visible", step=0.01)
-                new_prises.append(vp)
-        st.session_state["chrono_etapes"][idx]["prises"] = new_prises
+                new_prises.append(vp)   # Collecte la valeur saisie
+        st.session_state["chrono_etapes"][idx]["prises"] = new_prises   # Sauvegarde les mesures mises à jour
 
-        # Stats bar
-        freq_disp = f"÷{freq}" if is_tf else "—"
-        coef_disp = f"×{round(coef_seq,3)}" if coef_seq != 1.0 else "×1 (aucun)"
+        # Barre de statistiques de la séquence
+        freq_disp = f"÷{freq}" if is_tf else "—"                                 # Affichage de la fréquence
+        coef_disp = f"×{round(coef_seq,3)}" if coef_seq != 1.0 else "×1 (aucun)"  # Affichage du coef
         st.markdown(
             f'<div class="chrono-stats" style="margin-bottom:8px;">'
             f'<b>N={n_valid}</b> &nbsp;|&nbsp; '
@@ -722,18 +959,21 @@ if st.session_state.get("show_chrono", False):
             f'</div>', unsafe_allow_html=True)
         st.markdown("---")
 
+    # Supprime les séquences marquées (en ordre décroissant pour ne pas décaler les indices)
     if etapes_del:
         for i in sorted(etapes_del, reverse=True):
             st.session_state["chrono_etapes"].pop(i)
         st.rerun()
 
-    # ---- RÉCAPITULATIF TABLE ----
+    # --- Tableau récapitulatif HTML ---
     st.markdown("### 📋 Récapitulatif — Feuille de relevés")
+
+    # Construction du tableau HTML manuellement (chaîne de caractères)
     recap_html = '<div class="chrono-table-wrap"><table class="chrono-tbl"><thead><tr>'
     recap_html += '<th class="seq-col">Séquence</th>'
     recap_html += '<th class="seq-col">Machine</th>'
     for pi in range(n_col):
-        recap_html += f'<th>T{pi+1}</th>'
+        recap_html += f'<th>T{pi+1}</th>'   # Une colonne par mesure
     recap_html += '<th class="fixed-col">Freq</th>'
     recap_html += '<th class="fixed-col">Moy.brute</th>'
     recap_html += '<th class="fixed-col">Coef</th>'
@@ -742,6 +982,7 @@ if st.session_state.get("show_chrono", False):
     recap_html += '<th class="fixed-col">JE</th>'
     recap_html += '</tr></thead><tbody>'
 
+    # Ligne par séquence dans le tableau récapitulatif
     for etape in st.session_state["chrono_etapes"]:
         vals = [v for v in etape["prises"] if v > 0]
         moy_raw = sum(vals)/len(vals) if vals else 0.0
@@ -753,6 +994,7 @@ if st.session_state.get("show_chrono", False):
         dp      = round((sum((v-moy_raw)**2 for v in vals)/len(vals))**0.5, 4) if len(vals)>1 else 0.0
         freq_disp = str(freq) if is_tf else "—"
         mach_val = etape.get("machine","Opérateur")
+        # Classe CSS selon la machine
         if mach_val == "M1": mach_cls = "mach-m1"
         elif mach_val == "M2": mach_cls = "mach-m2"
         else: mach_cls = "mach-op"
@@ -761,7 +1003,7 @@ if st.session_state.get("show_chrono", False):
         recap_html += f'<td class="{mach_cls}">{mach_val}</td>'
         for pi in range(n_col):
             v = etape["prises"][pi] if pi < len(etape["prises"]) else 0.0
-            cell_val = f"{v:.2f}" if v > 0 else ""
+            cell_val = f"{v:.2f}" if v > 0 else ""   # Affiche vide si la mesure est 0
             recap_html += f'<td>{cell_val}</td>'
         recap_html += f'<td class="stat-freq">{freq_disp}</td>'
         recap_html += f'<td class="stat-moy">{round(moy_raw,4)}</td>'
@@ -775,21 +1017,23 @@ if st.session_state.get("show_chrono", False):
     st.markdown(recap_html, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ---- TRANSFER BUTTON — routes to each machine table ----
+    # --- Bouton de transfert vers les tableaux ---
     if st.button("🚀 Transférer vers les tableaux", use_container_width=True, key="chrono_inject"):
-        # Group rows by machine destination
-        rows_by_machine = {}
+        rows_by_machine = {}   # Dictionnaire : machine → liste de lignes à insérer
+
         for etape in st.session_state["chrono_etapes"]:
             dest = etape.get("machine","Opérateur")
-            # "Opérateur" type sequences always go to M1 (main table)
+            # Les séquences "Opérateur" vont dans M1 (le tableau principal)
             if dest == "Opérateur":
                 dest_key = "M1"
             else:
                 dest_key = dest
-            # Ensure dest_key is in machines list
+
+            # Ajoute la machine à la liste si elle n'y est pas encore
             if dest_key not in st.session_state["machines"]:
                 st.session_state["machines"].append(dest_key)
 
+            # Calcule la durée finale de la séquence
             vals_nz = [v for v in etape["prises"] if v > 0]
             moy_raw = round(sum(vals_nz)/len(vals_nz), 4) if vals_nz else 0.0
             freq    = etape.get("freq",1) or 1
@@ -799,11 +1043,14 @@ if st.session_state.get("show_chrono", False):
             duree   = round(moy_freq * coef_seq, 4)
             t = etape["type"]
 
+            # Initialise la liste pour cette machine si pas encore créée
             if dest_key not in rows_by_machine:
                 rows_by_machine[dest_key] = []
+
+            # Ajoute la ligne avec toutes les colonnes nécessaires au tableau
             rows_by_machine[dest_key].append({
                 "Etape": etape["nom"],
-                "Debut": 0.0,
+                "Debut": 0.0,      # Sera calculé plus bas
                 "Duree": duree,
                 "TM 🕐": t == "TM",
                 "TT 🤖": t == "TT",
@@ -813,16 +1060,16 @@ if st.session_state.get("show_chrono", False):
                 "TF 🎨": t == "TF",
             })
 
-        # Compute cumulative Debut for each machine and store
+        # Calcule les débuts cumulés pour chaque machine (chaque étape commence où la précédente finit)
         for dest_key, rows in rows_by_machine.items():
             debut = 0.0
             for r in rows:
-                r["Debut"] = round(debut, 4)
-                debut += r["Duree"]
-            st.session_state[f"init_data_{dest_key}"] = pd.DataFrame(rows)
+                r["Debut"] = round(debut, 4)   # Assigne le début cumulé
+                debut += r["Duree"]             # Avance le curseur de temps
+            st.session_state[f"init_data_{dest_key}"] = pd.DataFrame(rows)   # Sauvegarde le DataFrame
 
-        st.session_state["editor_version"] += 1
-        st.session_state["show_chrono"] = False
+        st.session_state["editor_version"] += 1    # Force le rechargement des tableaux
+        st.session_state["show_chrono"] = False     # Ferme le module de chrono
         machines_filled = list(rows_by_machine.keys())
         st.success(f"✅ Données transférées vers : {', '.join(machines_filled)}")
         st.rerun()
@@ -830,11 +1077,13 @@ if st.session_state.get("show_chrono", False):
     st.markdown("---")
 
 # ===================================================
-# LÉGENDE
+# LÉGENDE — explication des types de temps
 # ===================================================
 
 st.markdown("### Légende des types de temps")
-leg_cols=st.columns(5)
+leg_cols=st.columns(5)   # 5 colonnes côte à côte pour la légende
+
+# Pour chaque type de temps, affiche un carré coloré + code + description
 for col,(color,code,tip,label) in zip(leg_cols,[
     ("#ff8c00","TM","Temps Manuel - Opérateur seul","Temps manuel"),
     ("#1f4fff","TT","Temps Technologique - Machine seule","Temps machine"),
@@ -845,57 +1094,71 @@ for col,(color,code,tip,label) in zip(leg_cols,[
     with col:
         st.markdown(
             f'<div style="text-align:center;"><span class="legend-color" style="background-color:{color};"></span>'
-            f'<strong>{code}</strong><span class="info-icon" title="{tip}">?</span>'
+            f'<strong>{code}</strong><span class="info-icon" title="{tip}">?</span>'   # Info-bulle au survol
             f'<br><small>{label}</small></div>',unsafe_allow_html=True)
+
 st.markdown("---")
 
 # ===================================================
-# TABLES
+# TABLEAUX DE SAISIE — un tableau par machine
 # ===================================================
 
-BOOL_COLS=["TM 🕐","TT 🤖","TTM ⚡","TR ☕","TZ ⚫","TF 🎨"]
-ver=st.session_state["editor_version"]
+BOOL_COLS=["TM 🕐","TT 🤖","TTM ⚡","TR ☕","TZ ⚫","TF 🎨"]   # Colonnes booléennes (cases à cocher)
+ver=st.session_state["editor_version"]   # Version courante pour forcer le rechargement des éditeurs
+
 
 def make_empty_df():
+    """Retourne un DataFrame vide avec une seule ligne vide — valeur par défaut pour un nouveau tableau."""
     return pd.DataFrame([{"Etape":"","Debut":0.0,"Duree":0.0,
         "TM 🕐":False,"TT 🤖":False,"TTM ⚡":False,
         "TR ☕":False,"TZ ⚫":False,"TF 🎨":False}])
 
-dfs_calc=[]
 
+dfs_calc=[]   # Liste qui contiendra les DataFrames de toutes les machines (fusionnés ensuite pour les calculs)
+
+# Crée un tableau de saisie pour chaque machine
 for m in st.session_state["machines"]:
-    ct,cd=st.columns([6,1])
-    with ct: st.subheader(f"Tableau {m}")
+    ct,cd=st.columns([6,1])   # Titre à gauche (large), bouton supprimer à droite (étroit)
+    with ct:
+        st.subheader(f"Tableau {m}")   # Titre du tableau (ex: "Tableau M1")
     with cd:
-        if m!="M1":
+        if m!="M1":   # On ne peut pas supprimer M1 (machine principale)
             if st.button("🗑️",key=f"del_machine_{m}"):
-                st.session_state["machines"].remove(m)
-                st.session_state.pop(f"init_data_{m}",None); st.rerun()
+                st.session_state["machines"].remove(m)                  # Supprime de la liste
+                st.session_state.pop(f"init_data_{m}",None)             # Supprime les données associées
+                st.rerun()
         else:
-            st.write("")
+            st.write("")   # Espace vide pour M1 (alignement)
 
+    # Charge les données initiales depuis la session (si disponibles) ou crée un tableau vide
     if f"init_data_{m}" in st.session_state:
-        initial=st.session_state[f"init_data_{m}"].copy()
+        initial=st.session_state[f"init_data_{m}"].copy()   # Copie pour ne pas modifier l'original
+        # S'assure que toutes les colonnes booléennes existent et sont bien de type bool
         for bc in BOOL_COLS:
             if bc not in initial.columns: initial[bc]=False
-            initial[bc]=initial[bc].fillna(False).astype(bool)
+            initial[bc]=initial[bc].fillna(False).astype(bool)   # Remplace NaN par False
+        # Convertit les colonnes numériques
         for nc in ["Debut","Duree"]:
             if nc in initial.columns:
                 initial[nc]=pd.to_numeric(initial[nc],errors='coerce').fillna(0.0)
     else:
-        initial=make_empty_df()
+        initial=make_empty_df()   # Tableau vide si aucune donnée
 
+    # Calcule les débuts cumulés automatiquement si tous les débuts sont à 0 (cas d'un nouveau tableau)
     if "Duree" in initial.columns:
         debut_vals=pd.to_numeric(initial["Debut"],errors='coerce').fillna(0)
         duree_vals=pd.to_numeric(initial["Duree"],errors='coerce').fillna(0)
-        if debut_vals.sum()==0 and len(initial)>1:
+        if debut_vals.sum()==0 and len(initial)>1:   # Si tous les débuts sont 0 et il y a plusieurs lignes
             cumul=0.0
             for idx2 in range(len(initial)):
-                initial.at[idx2,"Debut"]=cumul
+                initial.at[idx2,"Debut"]=cumul                # Assigne le début cumulé
                 cumul+=float(duree_vals.iloc[idx2]) if idx2<len(duree_vals) else 0
 
+    # Affiche le tableau de saisie interactif (l'utilisateur peut modifier les cellules directement)
     df_out=st.data_editor(
-        initial, num_rows="dynamic", key=f"editor_{m}_v{ver}",
+        initial,
+        num_rows="dynamic",                          # L'utilisateur peut ajouter/supprimer des lignes
+        key=f"editor_{m}_v{ver}",                   # Clé unique incluant la version (force rechargement)
         use_container_width=True,
         column_config={
             "Etape":   st.column_config.TextColumn("Description étape",width="medium"),
@@ -910,95 +1173,142 @@ for m in st.session_state["machines"]:
         }
     )
 
+    # Post-traitement du tableau édité
     df_c=df_out.copy()
+    # Simplifie les noms de colonnes (retire les emojis) : "TM 🕐" → "TM"
     df_c.columns=[c.split(' ')[0] if ' ' in c else c for c in df_c.columns]
     df_c["Debut"]=pd.to_numeric(df_c["Debut"],errors='coerce').fillna(0)
     df_c["Duree"]=pd.to_numeric(df_c["Duree"],errors='coerce').fillna(0)
-    df_c["Fin"]=df_c["Debut"]+df_c["Duree"]
-    df_c["Sys"]=m
-    dfs_calc.append(df_c)
+    df_c["Fin"]=df_c["Debut"]+df_c["Duree"]    # Calcule la fin = début + durée
+    df_c["Sys"]=m                               # Ajoute une colonne "Sys" pour identifier la machine
+    dfs_calc.append(df_c)                       # Ajoute ce tableau à la liste de tous les tableaux
 
+# Fusionne tous les tableaux machine en un seul grand DataFrame pour les calculs
 edited_df=pd.concat(dfs_calc,ignore_index=True) if dfs_calc else pd.DataFrame()
 
 # ===================================================
-# GENERATE
+# GÉNÉRATION DU SIMOGRAMME
 # ===================================================
 
 if st.button("🚀 Générer le simogramme",use_container_width=True):
+    # Vérification : au moins une durée > 0 doit être saisie
     if edited_df.empty or edited_df["Duree"].sum()==0:
-        st.error("Veuillez saisir des données dans au moins une table"); st.stop()
+        st.error("Veuillez saisir des données dans au moins une table")
+        st.stop()   # Arrête l'exécution si pas de données
 
-    fig,ax=plt.subplots(figsize=(18,6))
-    fig.patch.set_facecolor('white'); ax.set_facecolor('white'); ax.set_frame_on(False)
+    # --- Création du graphique ---
+    fig,ax=plt.subplots(figsize=(18,6))    # Crée une figure de 18×6 pouces
+    fig.patch.set_facecolor('white')        # Fond blanc de la figure
+    ax.set_facecolor('white')              # Fond blanc du graphique
+    ax.set_frame_on(False)                 # Cache le cadre du graphique
+
     machines=st.session_state["machines"]
-    y_pos={}; step=0.6; h=0.22; y_op=0
+    y_pos={}    # Dictionnaire : machine → position Y sur le graphique
+    step=0.6    # Espacement vertical entre les lignes de machine
+    h=0.22      # Hauteur des rectangles
+    y_op=0      # Position Y de la ligne "Opérateur" (toujours à 0)
+
+    # Calcule les positions Y des machines en alternant au-dessus et en-dessous de l'opérateur
     for i,m in enumerate(machines):
         y_pos[m]=step*((i//2)+1) if i%2==0 else -step*((i//2)+1)
+        # Machines paires : au-dessus (positif), impaires : en-dessous (négatif)
 
-    max_x=0
-    # Accumulators — global (all machines merged for operator)
-    tm_total_global=0; man_total_global=0; par_total_global=0
-    rep_total_global=0; msk_total_global=0
-    # Per-machine accumulators for TT (machine time)
-    machine_tt = {m: 0 for m in machines}
-    machine_ttm = {m: 0 for m in machines}
+    max_x=0   # Largeur maximale du graphique (sera mise à jour au fil des étapes)
 
+    # Accumulateurs globaux (tous les temps de l'opérateur, toutes machines confondues)
+    tm_total_global=0       # Total temps machine (TT + TTM)
+    man_total_global=0      # Total temps manuel opérateur (TM seul)
+    par_total_global=0      # Total temps parallèle (TTM)
+    rep_total_global=0      # Total temps de repos (TR)
+    msk_total_global=0      # Total temps masqué (TZ)
+
+    # Accumulateurs par machine (pour calculer des cycles indépendants)
+    machine_tt = {m: 0 for m in machines}    # Temps machine pure (TT) par machine
+    machine_ttm = {m: 0 for m in machines}   # Temps parallèle (TTM) par machine
+
+    # Couleurs des rectangles par type de temps
     COLORS={"TM":"#ff8c00","TT":"#1f4fff","TTM":"#111827","TR":"#9ca3af","TZ":"#e5e7eb"}
 
     def do_hatch(ax,rect,x,y,w,ht,sp=0.2):
+        """Dessine des hachures diagonales sur un rectangle (utilisé pour les TF = temps à faible fréquence)."""
         i=0
         while i<w+ht:
+            # Trace des lignes diagonales à l'intérieur du rectangle
             ln,=ax.plot([x+i,x+i-ht],[y,y+ht],color="black",lw=0.6,alpha=0.6)
-            ln.set_clip_path(rect); i+=sp
+            ln.set_clip_path(rect)   # Limite le tracé au rectangle (comme un masque)
+            i+=sp                    # Avance l'espacement
 
+    # Parcourt chaque étape et dessine le rectangle correspondant
     for _,row in edited_df.iterrows():
-        op=str(row["Etape"]) if pd.notna(row["Etape"]) else ""
-        s=float(row["Debut"]); t=float(row["Duree"]); e=s+t; sy=str(row["Sys"])
+        op=str(row["Etape"]) if pd.notna(row["Etape"]) else ""   # Nom de l'étape
+        s=float(row["Debut"])    # Début en secondes (position X)
+        t=float(row["Duree"])    # Durée en secondes (largeur du rectangle)
+        e=s+t                    # Fin en secondes
+        sy=str(row["Sys"])       # Nom de la machine de cette étape
+
+        # Récupère les types cochés (booléens)
         tm=bool(row.get("TM",False)); tt=bool(row.get("TT",False))
         ttm=bool(row.get("TTM",False)); tr=bool(row.get("TR",False))
         tz=bool(row.get("TZ",False)); tf=bool(row.get("TF",False))
+
+        # --- Cas 1 : Temps Masqué (TZ) --- dessiné sur la ligne opérateur
         if tz:
             msk_total_global+=t
             r=Rectangle((s,y_op),t,h,facecolor=COLORS["TZ"],edgecolor="black",alpha=0.4)
             ax.add_patch(r)
-            if tf and t>0: do_hatch(ax,r,s,y_op,t,h)
-            max_x=max(max_x,e); continue
+            if tf and t>0: do_hatch(ax,r,s,y_op,t,h)   # Ajoute les hachures si TF
+            max_x=max(max_x,e)
+            continue   # Passe à l'étape suivante (pas d'autre traitement)
+
+        # --- Cas 2 : Temps Machine (TT seul) --- dessiné sur la ligne de la machine
         if tt and not ttm:
-            machine_tt[sy] = machine_tt.get(sy,0) + t
-            yp=y_pos.get(sy,0)
+            machine_tt[sy] = machine_tt.get(sy,0) + t   # Accumule pour cette machine
+            yp=y_pos.get(sy,0)                           # Position Y de la machine
             r=Rectangle((s,yp),t,h,facecolor=COLORS["TT"],edgecolor="black")
             ax.add_patch(r)
             if tf and t>0: do_hatch(ax,r,s,yp,t,h)
             max_x=max(max_x,e)
+
+        # --- Cas 3 : Temps Manuel (TM seul) --- dessiné sur la ligne opérateur
         elif tm and not ttm:
             man_total_global+=t
             r=Rectangle((s,y_op),t,h,facecolor=COLORS["TM"],edgecolor="black")
             ax.add_patch(r)
             if tf and t>0: do_hatch(ax,r,s,y_op,t,h)
             max_x=max(max_x,e)
+
+        # --- Cas 4 : Temps Parallèle (TTM) --- opérateur ET machine en même temps
         elif ttm:
             machine_ttm[sy] = machine_ttm.get(sy,0) + t
             par_total_global+=t
             yp=y_pos.get(sy,0)
-            r=Rectangle((s,y_op),t,yp-y_op,facecolor="#FFFFFF00",edgecolor="black")
+            # Dessine un rectangle couvrant la zone entre l'opérateur et la machine
+            r=Rectangle((s,y_op),t,yp-y_op,facecolor="#FFFFFF00",edgecolor="black")   # Transparent
             ax.add_patch(r)
-            ax.plot([s,s+t],[y_op,yp],color="black",lw=1.5)
+            ax.plot([s,s+t],[y_op,yp],color="black",lw=1.5)   # Ligne diagonale pour visualiser la simultanéité
             if tf and t>0: do_hatch(ax,r,s,y_op,t,abs(yp-y_op))
             max_x=max(max_x,e)
+
+        # --- Cas 5 : Temps de Repos (TR) --- dessiné sur la ligne opérateur
         elif tr:
             rep_total_global+=t
             r=Rectangle((s,y_op),t,h,facecolor=COLORS["TR"],edgecolor="black",alpha=0.6)
             ax.add_patch(r)
             if tf and t>0: do_hatch(ax,r,s,y_op,t,h)
             max_x=max(max_x,e)
+
+        # Affiche le nom de l'étape sous le rectangle (si assez large et non vide)
         if t>=0.5 and op not in ("","nan"):
             ax.text(s+t/2,y_op-0.18,op,ha="center",fontsize=9)
 
+    # Dessine les lignes horizontales et les étiquettes de machine
     for m,y in y_pos.items():
-        ax.hlines(y,0,max_x,color="black",lw=1.5)
-        ax.text(-1.5,y,m,ha="right",fontsize=14,fontweight="bold")
-    ax.hlines(y_op,0,max_x,color="black",lw=2)
+        ax.hlines(y,0,max_x,color="black",lw=1.5)              # Ligne de la machine
+        ax.text(-1.5,y,m,ha="right",fontsize=14,fontweight="bold")   # Étiquette à gauche
+    ax.hlines(y_op,0,max_x,color="black",lw=2)                 # Ligne de l'opérateur (plus épaisse)
     ax.text(-1.5,y_op,"Opérateur",ha="right",fontsize=16,fontweight="bold")
+
+    # Légende du graphique
     ax.legend(handles=[
         Patch(facecolor=COLORS["TM"],edgecolor='black',label='TM - Temps Manuel'),
         Patch(facecolor=COLORS["TT"],edgecolor='black',label='TT - Temps Machine'),
@@ -1006,41 +1316,73 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
         Patch(facecolor=COLORS["TR"],edgecolor='black',label='TR - Temps Repos'),
         Patch(facecolor=COLORS["TZ"],edgecolor='black',alpha=0.4,label='TZ - Temps Masqué'),
     ],loc='upper right',framealpha=0.9)
-    ax.set_xlim(-2,max_x+2); ax.set_ylim(-1.5,1.5); ax.set_yticks([])
+
+    ax.set_xlim(-2,max_x+2)   # Limites de l'axe X (avec marges)
+    ax.set_ylim(-1.5,1.5)     # Limites de l'axe Y
+    ax.set_yticks([])          # Cache les graduations de l'axe Y
     ax.set_xlabel("Temps (secondes)",fontsize=12,fontweight="bold")
-    ax.grid(axis="x",alpha=0.2,linestyle="--")
-    plt.tight_layout()
+    ax.grid(axis="x",alpha=0.2,linestyle="--")   # Grille verticale légère
+    plt.tight_layout()         # Ajuste les marges automatiquement
 
     # ===================================================
-    # CALCULS PAR MACHINE — cycle indépendant par machine
-    # L'opérateur est partagé (même TM pour tous les cycles)
+    # CALCULS — cycles indépendants par machine
     # ===================================================
+
+    # Temps humain total (opérateur) = manuel + parallèle + masqué
     hum = man_total_global + par_total_global + msk_total_global
+
+    # Temps manuel avec coefficient humain (marge de fatigue/maladresse)
     man_th = man_total_global * coef_temps_humain
 
-    # Per-machine cycle calculations
-    per_machine_results = {}
+    per_machine_results = {}   # Stockera les résultats pour chaque machine
+
     for m in machines:
-        tm_m = machine_tt.get(m, 0) + machine_ttm.get(m, 0)   # TT_m + TTM_m
+        # Temps machine total pour cette machine = TT (machine seule) + TTM (parallèle)
+        tm_m = machine_tt.get(m, 0) + machine_ttm.get(m, 0)
+
+        # Cycle brut = temps machine + temps manuel brut (sans coef)
         cyc_brut_m  = tm_m + man_total_global
+
+        # Cycle après application du coef. humain
         cyc_th_m    = tm_m + man_th
+
+        # Cycle final après application du coef. de cycle (ajoute une marge de repos)
         cyc_fin_m   = cyc_th_m * coef_temps_cycle
 
+        # Taux d'occupation opérateur = (temps humain total / cycle brut) × 100
         taux_h_m = (hum / cyc_brut_m * 100) if cyc_brut_m > 0 else 0
+
+        # Taux d'occupation machine = (temps machine / cycle brut) × 100
         taux_m_m = (tm_m / cyc_brut_m * 100) if cyc_brut_m > 0 else 0
+
+        # Production horaire = 3600 secondes / cycle final
         p_h_m    = 3600 / cyc_fin_m if cyc_fin_m > 0 else 0
+
+        # Production journalière = pièces/heure × heures de travail/jour
         p_j_m    = p_h_m * heures_travail
 
+        # Temps de repos ajouté par pièce = différence entre cycle final et cycle avant coef
         temps_repos_piece_m   = cyc_fin_m - cyc_th_m
+
+        # Repos total par heure = repos par pièce × nombre de pièces par heure
         repos_heure_s_m       = temps_repos_piece_m * p_h_m
+
+        # Conversion en minutes pour l'affichage
         repos_par_heure_min_m = repos_heure_s_m / 60
+
+        # Pourcentage du cycle final consacré au repos
         pct_repos_m           = round((1 - 1/coef_temps_cycle)*100,1) if coef_temps_cycle > 1 else 0
 
-        pe_m=int(cyc_fin_m); fr_m=cyc_fin_m-pe_m; m5_m=round(fr_m*20)/20
-        if m5_m>=1.0: m5_m=0.95; pe_m+=1
-        fc_m=int(m5_m*100)
-        code_m=f"{pe_m}A{'01' if fc_m==0 else str(fc_m).zfill(2)}"
+        # --- Calcul du CODE TEMPS ---
+        # Exemple : cycle = 45.75s → code "45A75" (45 secondes, 75 centièmes d'UM)
+        pe_m=int(cyc_fin_m)         # Partie entière du cycle en secondes
+        fr_m=cyc_fin_m-pe_m         # Partie décimale
+        m5_m=round(fr_m*20)/20       # Arrondi au 5% le plus proche (en fractions de 100)
+        if m5_m>=1.0: m5_m=0.95; pe_m+=1   # Évite d'avoir 100 centièmes (bascule à la seconde suivante)
+        fc_m=int(m5_m*100)           # Convertit en centièmes (0 à 95)
+        code_m=f"{pe_m}A{'01' if fc_m==0 else str(fc_m).zfill(2)}"   # Format final du code
 
+        # Stocke tous les résultats pour cette machine
         per_machine_results[m] = {
             "total_machine_time": tm_m,
             "total_tt_only": machine_tt.get(m,0),
@@ -1062,21 +1404,23 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
             "temps_repos_par_piece_s": temps_repos_piece_m,
         }
 
-    # Use M1 (first machine) as primary resultats for saving/Excel
+    # Utilise M1 (première machine) comme résultats principaux pour la sauvegarde/Excel
     first_m = machines[0]
     resultats_dict = per_machine_results[first_m].copy()
-    # Also store all machines
-    resultats_dict["per_machine"] = {m: per_machine_results[m] for m in machines}
+    resultats_dict["per_machine"] = {m: per_machine_results[m] for m in machines}   # Inclut toutes les machines
 
     # ===================================================
-    # KPIs — shared operator section + per-machine cycles
+    # AFFICHAGE DES KPIs
     # ===================================================
+
     st.markdown("## Indicateurs de performance")
 
-    # --- Shared operator KPIs ---
+    # --- KPIs communs à l'opérateur ---
     st.markdown("### 👷 Opérateur (commun à toutes les machines)")
     oc1,oc2,oc3,oc4 = st.columns(4)
+
     def kpi(col,v,label,delta="",style=""):
+        """Affiche une carte KPI avec valeur, étiquette et texte secondaire."""
         css = style if style else "metric-card"
         val_css = "metric-value-m1" if "m1" in css else ("metric-value-m2" if "m2" in css else "metric-value")
         lbl_css = "metric-label-m1" if "m1" in css else ("metric-label-m2" if "m2" in css else "metric-label")
@@ -1086,6 +1430,7 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
                         f'<div class="{lbl_css}">{label}</div>'
                         f'<div class="{dlt_css}">{delta}</div></div>',unsafe_allow_html=True)
 
+    # Carte : Temps manuel brut et après coef
     with oc1:
         st.markdown(f'<div class="metric-card"><div class="metric-value">{round(man_total_global,2)} s</div>'
                     f'<div class="metric-label">Temps manuel TM brut</div>'
@@ -1105,25 +1450,24 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
                     f'<div class="metric-label">Temps repos TR (saisi)</div></div>',
                     unsafe_allow_html=True)
 
-    # --- Per-machine KPI blocks ---
-    machine_colors = ["m1","m2","m1","m2"]  # cycle colors
+    # --- KPIs par machine ---
+    machine_colors = ["m1","m2","m1","m2"]   # Couleurs en alternance (bleu, vert, bleu, vert...)
+
     for mi, m in enumerate(machines):
         res_m = per_machine_results[m]
-        color_key = machine_colors[mi % len(machine_colors)]
+        color_key = machine_colors[mi % len(machine_colors)]   # Cycle sur les couleurs
         card_cls = f"metric-card-{color_key}"
+        header_style = "cycle-header-m1" if color_key == "m1" else "cycle-header-m2"
 
-        if color_key == "m1":
-            header_style = "cycle-header-m1"
-        else:
-            header_style = "cycle-header-m2"
-
+        # En-tête coloré de la section machine
         st.markdown(f'<div class="{header_style}">🏭 Cycle — {m}</div>', unsafe_allow_html=True)
 
+        # 6 KPIs sur une ligne
         kc1,kc2,kc3,kc4,kc5,kc6 = st.columns(6)
         cols_m = [kc1,kc2,kc3,kc4,kc5,kc6]
         kpis_m = [
             (f"{round(res_m['temps_cycle_final'],2)} s", "Temps cycle final", f"×{coef_temps_cycle} TC"),
-            (f"{round(res_m['temps_cycle_final']/36,3)} UM", "Temps cycle (UM)", ""),
+            (f"{round(res_m['temps_cycle_final']/36,3)} UM", "Temps cycle (UM)", ""),   # Conversion en Unité Machine
             (f"{round(res_m['total_machine_time'],2)} s", "Temps machine TT+TTM",
              f"TT:{round(res_m['total_tt_only'],2)} TTM:{round(res_m['total_ttm'],2)}"),
             (f"{round(res_m['taux_h'],2)} %", "Taux occ. opérateur",
@@ -1139,6 +1483,7 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
                     f'<div class="metric-delta-{color_key}">{dlt_m}</div></div>',
                     unsafe_allow_html=True)
 
+        # 3 KPIs supplémentaires sur une deuxième ligne
         kd1,kd2,kd3 = st.columns(3)
         with kd1:
             st.markdown(
@@ -1157,6 +1502,7 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
                 f'<div class="metric-label-{color_key}">Code temps</div></div>',
                 unsafe_allow_html=True)
 
+        # Bloc dépliable avec le détail de tous les calculs intermédiaires
         with st.expander(f"Détail des calculs — {m}"):
             for k_d,v_d in [
                 ("TM (brut)",f"{round(man_total_global,4)} s"),
@@ -1173,15 +1519,17 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
                 ("Repos total/heure",f"{round(res_m['repos_par_heure_min']*60,1)} s = {round(res_m['repos_par_heure_min'],2)} min"),
                 ("CODE TEMPS",res_m["code_temps"])
             ]:
-                st.write(f"**{k_d}:** {v_d}")
+                st.write(f"**{k_d}:** {v_d}")   # Affiche chaque résultat intermédiaire
 
     st.success("✅ Simogramme généré avec succès")
-    st.pyplot(fig)
+    st.pyplot(fig)   # Affiche le graphique dans la page
 
+    # Sauvegarde l'image en mémoire (format PNG) pour le téléchargement ultérieur
     img_buf=io.BytesIO()
     fig.savefig(img_buf,format='png',bbox_inches="tight",dpi=150,facecolor='white')
-    img_bytes=img_buf.getvalue()
+    img_bytes=img_buf.getvalue()   # Récupère les octets de l'image
 
+    # Prépare les informations de la sidebar pour l'export Excel
     sidebar_info={
         "numero_of":numero_of,"reference_piece":reference_piece,
         "numero_machine":numéro_machine,"pdc":pdc,
@@ -1191,41 +1539,63 @@ if st.button("🚀 Générer le simogramme",use_container_width=True):
         "coef_temps_cycle":coef_temps_cycle,
         "heures_travail":heures_travail,
     }
+
+    # Génère le fichier Excel complet
     excel_bytes=build_excel(edited_df,machines,sidebar_info,resultats_dict,img_bytes)
 
+    # Sauvegarde tout dans la session pour les boutons de téléchargement (affichés plus bas)
     st.session_state["fig_bytes"]=img_bytes
     st.session_state["excel_bytes"]=excel_bytes
+
+    # Prépare le dictionnaire pour la sauvegarde en BDD (si l'utilisateur clique sur "Sauvegarder")
     st.session_state["pending_save"]={
-        'date':str(datetime.now()),'numero_of':numero_of,
-        'reference_piece':reference_piece,'numero_machine':numéro_machine,
-        'pdc':pdc,'numero_article':numero_article,
+        'date':str(datetime.now()),
+        'numero_of':numero_of,
+        'reference_piece':reference_piece,
+        'numero_machine':numéro_machine,
+        'pdc':pdc,
+        'numero_article':numero_article,
         'coef_temps_humain':coef_temps_humain,
         'coef_temps_cycle':coef_temps_cycle,
         'heures_travail':heures_travail,
-        'machines':json.dumps(st.session_state["machines"]),
-        'donnees':edited_df.to_json(),
-        'resultats':json.dumps(resultats_dict, default=str),
+        'machines':json.dumps(st.session_state["machines"]),   # Convertit la liste en JSON
+        'donnees':edited_df.to_json(),                         # Convertit le DataFrame en JSON
+        'resultats':json.dumps(resultats_dict, default=str),   # Convertit les résultats en JSON (default=str gère les types non-sérialisables)
     }
 
 # ===================================================
-# DOWNLOAD BUTTONS
+# BOUTONS DE TÉLÉCHARGEMENT ET SAUVEGARDE
 # ===================================================
 
+# Affiche les boutons seulement si un simogramme a déjà été généré
 if st.session_state["excel_bytes"] or st.session_state["fig_bytes"]:
     st.markdown("---")
     cb1,cb2,cb3=st.columns(3)
+
     with cb1:
         if st.button("💾 Sauvegarder",key="save_btn",use_container_width=True):
+            # Sauvegarde dans la base de données si des données sont en attente
             if st.session_state["pending_save"] and save_configuration(st.session_state["pending_save"]):
                 st.success("✅ Sauvegardé !")
+
     with cb2:
         if st.session_state["excel_bytes"]:
-            st.download_button("📥 Télécharger Excel",data=st.session_state["excel_bytes"],
-                file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True)
+            # Bouton de téléchargement du fichier Excel
+            st.download_button(
+                "📥 Télécharger Excel",
+                data=st.session_state["excel_bytes"],
+                file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",   # Nom avec horodatage
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # Type MIME Excel
+                use_container_width=True
+            )
+
     with cb3:
         if st.session_state["fig_bytes"]:
-            st.download_button("🖼️ Télécharger PNG",data=st.session_state["fig_bytes"],
+            # Bouton de téléchargement de l'image PNG
+            st.download_button(
+                "🖼️ Télécharger PNG",
+                data=st.session_state["fig_bytes"],
                 file_name=f"simogramme_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-                mime="image/png",use_container_width=True)
+                mime="image/png",
+                use_container_width=True
+            )
