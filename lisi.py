@@ -2,29 +2,29 @@
 # IMPORTS — comme les #include en C
 # ===================================================
 
-import streamlit as st          # La bibliothèque principale : elle crée l'interface web (boutons, tableaux, graphiques...)
-import pandas as pd              # Permet de manipuler des tableaux de données (comme des matrices en C)
+import streamlit as st          # La bibliothèque principale : elle crée l'interface web 
+import pandas as pd              # Permet de manipuler des tableaux de données 
 import matplotlib.pyplot as plt  # Bibliothèque pour dessiner des graphiques
-from matplotlib.patches import Rectangle, Patch  # Des formes géométriques pour dessiner le simogramme (rectangles, légende)
+from matplotlib.patches import Rectangle, Patch  # Des formes géométriques pour dessiner le simogramme 
 from datetime import datetime    # Pour obtenir la date et l'heure actuelle
-import sqlite3                   # Base de données légère stockée dans un fichier .db (comme un fichier structuré en C)
-import json                      # Pour convertir des données en texte et vice-versa (sérialisation)
+import sqlite3                   # Base de données légère stockée dans un fichier .db 
+import json                      # Pour convertir des données en texte et vice-versa 
 import io                        # Pour manipuler des données en mémoire comme si c'était des fichiers
-import os                        # Pour interagir avec le système de fichiers (créer des dossiers, des chemins...)
-from openpyxl import Workbook, load_workbook          # Pour créer et lire des fichiers Excel (.xlsx)
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side  # Pour formater les cellules Excel (couleur, police, bordure...)
+import os                        # Pour interagir avec le système de fichiers 
+from openpyxl import Workbook, load_workbook          # Pour créer et lire des fichiers Excel
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side  # Pour formater les cellules Excel 
 from openpyxl.drawing.image import Image as XLImage  # Pour insérer une image dans un fichier Excel
-from openpyxl.utils import get_column_letter          # Pour convertir un numéro de colonne en lettre (ex: 1 → "A")
+from openpyxl.utils import get_column_letter          # Pour convertir un numéro de colonne en lettre
 
 # ===================================================
 # CONFIGURATION DE LA PAGE
 # ===================================================
 
-# Définit le titre de l'onglet du navigateur et passe en mode large (pleine largeur)
+# Définit le titre de l'onglet du navigateur et passe en mode large 
 st.set_page_config(page_title="Simogramme", layout="wide")
 
 # ===================================================
-# STYLES CSS — comme définir l'apparence visuelle
+# STYLES CSS
 # ===================================================
 
 # st.markdown permet d'injecter du HTML/CSS directement dans la page
