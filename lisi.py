@@ -174,7 +174,7 @@ h1, h2, h3 { color: #1f2937; font-weight: 700; }
 """, unsafe_allow_html=True)
 
 # URL du logo de l'entreprise (image hébergée en ligne)
-LOGO_URL = "https://th.bing.com/th/id/R.0a38b5bebde3a9c6b070c0ad42c162d3?rik=U63XkDE5XvdVCg&riu=http%3a%2f%2fbandemfg.com%2fimages%2ffooter-logo.png&ehk=NquqcRNMxNTQUwJ5DrA7Sz1HroAbEmUUL7LemhCeyCQ%3d&risl=&pid=ImgRaw&r=0"
+LOGO_URL = "https://www.fabrique-en-aveyron.fr/wp-content/uploads/2026/02/Lisi-Aerospace.png"
 
 # Affiche le logo en haut de page avec une largeur de 250 pixels
 st.image(LOGO_URL, width=250)
